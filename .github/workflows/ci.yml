@@ -4,9 +4,14 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+
 jobs:
-  analyze-test:
-    name: Analyze & Test
+  analyze-test-preview:
+    name: Analyze, test & preview
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -17,9 +22,23 @@ jobs:
           cache: true
 
       - run: flutter pub get
-
       - run: dart format --output=none --set-exit-if-changed .
-
       - run: flutter analyze
-
       - run: flutter test
+      - run: flutter build web --release
+
+      - name: Read Firebase project ID
+        id: project
+        if: github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: echo "id=$(echo "$SERVICE_ACCOUNT" | jq -r .project_id)" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy preview channel
+        if: github.event.pull_request.head.repo.full_name == github.repository
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          projectId: ${{ steps.project.outputs.id }}
+          expires: 7d

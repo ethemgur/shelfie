@@ -11,12 +11,10 @@ concurrency:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 jobs:
-  test:
-    name: Analyze & Test
+  deploy-web:
+    name: Deploy web to Firebase Hosting
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -29,34 +27,18 @@ jobs:
       - run: flutter pub get
       - run: flutter analyze
       - run: flutter test
+      - run: flutter build web --release
 
-  build-web:
-    name: Build web
-    needs: test
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+      # The project ID is read from the service account key so only one secret is needed.
+      - name: Read Firebase project ID
+        id: project
+        env:
+          SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: echo "id=$(echo "$SERVICE_ACCOUNT" | jq -r .project_id)" >> "$GITHUB_OUTPUT"
 
-      - uses: subosito/flutter-action@v2
+      - uses: FirebaseExtended/action-hosting-deploy@v0
         with:
-          channel: stable
-          cache: true
-
-      - run: flutter pub get
-      - run: flutter build web --release --base-href "/${{ github.event.repository.name }}/"
-
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: build/web
-
-  deploy-web:
-    name: Deploy web to GitHub Pages
-    needs: build-web
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          projectId: ${{ steps.project.outputs.id }}
+          channelId: live
