@@ -1,0 +1,34 @@
+{
+  "@@locale": "en",
+  "appName": "Shelfie",
+  "@appName": {"description": "Working app name. Replace once the final name is chosen."},
+
+  "homeComingSoon": "Your reading loop starts here.",
+  "devSpikeEntry": "Rendering spike",
+
+  "sharePagesDelta": "+{count, plural, =1{1 page} other{{count} pages}}",
+  "@sharePagesDelta": {"placeholders": {"count": {"type": "int"}}},
+  "sharePageRange": "p.{from} → {to}",
+  "@sharePageRange": {"placeholders": {"from": {"type": "int"}, "to": {"type": "int"}}},
+  "shareProgressPercent": "{percent}%",
+  "@shareProgressPercent": {"placeholders": {"percent": {"type": "String"}}},
+  "shareWeeklyStreak": "{count, plural, =1{1 week streak} other{{count} week streak}}",
+  "@shareWeeklyStreak": {"placeholders": {"count": {"type": "int"}}},
+  "shareProfileFooter": "{domain}/@{username}",
+  "@shareProfileFooter": {"placeholders": {"domain": {"type": "String"}, "username": {"type": "String"}}},
+  "shareSlideCounter": "{index} / {total}",
+  "@shareSlideCounter": {"placeholders": {"index": {"type": "int"}, "total": {"type": "int"}}},
+
+  "spikeTitle": "Rendering spike",
+  "spikeRenderStory": "Render session_minimal (story)",
+  "spikeRenderCarousel": "Render 3-slide carousel",
+  "spikeShareInstagram": "Instagram Stories",
+  "spikeShareSystem": "Share…",
+  "spikeRendering": "Rendering…",
+  "spikeResult": "{count, plural, =1{1 image} other{{count} images}} · {width}×{height} · {millis} ms",
+  "@spikeResult": {"placeholders": {"count": {"type": "int"}, "width": {"type": "int"}, "height": {"type": "int"}, "millis": {"type": "int"}}},
+  "spikeError": "Render failed: {message}",
+  "@spikeError": {"placeholders": {"message": {"type": "String"}}},
+  "spikeCarouselHeadline": "Slide {index}",
+  "@spikeCarouselHeadline": {"placeholders": {"index": {"type": "int"}}}
+}
