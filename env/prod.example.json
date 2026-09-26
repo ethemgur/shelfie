@@ -1,0 +1,7 @@
+{
+  "FLAVOR": "prod",
+  "SUPABASE_URL": "https://<project-ref>.supabase.co",
+  "SUPABASE_ANON_KEY": "",
+  "META_APP_ID": "",
+  "APP_DOMAIN": "shelfie.app"
+}
