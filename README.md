@@ -1,20 +1,74 @@
 # shelfie
 
-A Flutter app (Web + Android), built and coded entirely through Claude.
+Social reading tracker ("Strava for readers"). Log the page you're on, share a
+card to Instagram or TikTok, and get kudos from friends. Built in Flutter
+(iOS 15+, Android API 24+) with a Supabase backend.
 
-- **Every push to `main`** runs analyze + tests, builds the web app and deploys
-  it to **Firebase Hosting** at `https://<project-id>.web.app`.
-- **Every pull request** runs the same checks and deploys a temporary
-  **preview URL** (valid 7 days), posted as a comment on the PR.
-- Android platform code is kept in the repo (same widgets/layout), but isn't
-  built or distributed by CI yet.
+- Choices the spec doesn't cover: [`DECISIONS.md`](DECISIONS.md)
+- Status: **Phase 0** (setup and rendering spike)
 
-## One-time setup
+## Layout
+
+```
+lib/
+  app/        app widget, router, theme, env config
+  dev/        dev-flavour-only tools (rendering spike)
+  features/
+    share/    template engine, styles, off-screen renderer, share targets
+  l10n/       ARB strings (+ generated code in l10n/gen)
+test/
+  unit/       pure logic and renderer tests
+  golden/     exported share images, pixel-compared
+supabase/     config.toml, migrations/, functions/
+env/          per-flavour build config (copy *.example.json)
+```
+
+## Running
+
+```bash
+cp env/dev.example.json env/dev.json      # fill in SUPABASE_*, META_APP_ID
+flutter pub get
+flutter run --flavor dev --dart-define-from-file=env/dev.json   # Android
+flutter run --dart-define-from-file=env/dev.json                # iOS (no flavour schemes yet)
+```
+
+In the dev flavour, the home screen links to the **rendering spike**. It
+renders `session_minimal` at 1080×1920 and a 3-slide carousel with a network
+cover, shows the export time, and shares to Instagram Stories or the system
+sheet.
+
+## Tests
+
+```bash
+flutter analyze
+flutter test                     # unit + golden
+flutter test --update-goldens    # after an intentional visual change (on Linux)
+```
+
+## Supabase
+
+Migrations live in `supabase/migrations/` and are managed with the Supabase CLI:
+
+```bash
+npx supabase start                   # local stack (needs Docker)
+npx supabase migration new <name>
+npx supabase db reset                # re-apply all migrations locally
+npx supabase db push                 # apply to the linked project
+```
+
+## Web deploy (pre-existing)
+
+Every push to `main` builds the Flutter web app and deploys it to Firebase
+Hosting. Pull requests get a 7-day preview URL. This needs one GitHub secret,
+`FIREBASE_SERVICE_ACCOUNT`. Whether to keep this deploy is an open question in
+`DECISIONS.md`.
+
+### One-time setup
 
 Only one GitHub secret is needed: `FIREBASE_SERVICE_ACCOUNT`. The project ID is
 read from inside it.
 
-### 1. Add Firebase to your Google Cloud project
+#### 1. Add Firebase to your Google Cloud project
 
 1. Open the [Firebase console](https://console.firebase.google.com/).
 2. Choose **Create a project** and pick **your existing Google Cloud project**
@@ -22,13 +76,13 @@ read from inside it.
    new one.
 3. Google Analytics is optional; skip it.
 
-### 2. Turn on Hosting
+#### 2. Turn on Hosting
 
 In the Firebase console, open **Build → Hosting → Get started** and click
 through the wizard (Next / Continue to console). You don't need to run any of
 the commands it shows you.
 
-### 3. Create a service account key for GitHub Actions
+#### 3. Create a service account key for GitHub Actions
 
 In the [Google Cloud console → IAM & Admin → Service accounts](https://console.cloud.google.com/iam-admin/serviceaccounts)
 (make sure your project is selected at the top):
@@ -40,7 +94,7 @@ In the [Google Cloud console → IAM & Admin → Service accounts](https://conso
 3. Click the new service account → **Keys** tab → **Add key → Create new key
    → JSON → Create**. A `.json` file downloads. Don't commit or share it.
 
-### 4. Add the key to GitHub
+#### 4. Add the key to GitHub
 
 GitHub repo → **Settings → Secrets and variables → Actions → New repository
 secret**:
@@ -48,17 +102,7 @@ secret**:
 - **Name:** `FIREBASE_SERVICE_ACCOUNT`
 - **Secret:** paste the entire contents of the JSON file
 
-### 5. Deploy
+#### 5. Deploy
 
 Push to `main`, or run it by hand from **Actions → Deploy → Run workflow**.
 The live URL is `https://<project-id>.web.app`.
-
-## Local development
-
-This repo is edited through Claude Code, but to run it yourself:
-
-```bash
-flutter pub get
-flutter run -d chrome   # web
-flutter run             # android device/emulator
-```
