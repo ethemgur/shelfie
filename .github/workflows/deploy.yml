@@ -13,8 +13,40 @@ permissions:
   contents: read
 
 jobs:
+  deploy-backend:
+    name: Deploy Supabase (migrations + functions)
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
+    steps:
+      - name: Check Supabase deploy settings
+        id: configured
+        run: |
+          if [ -n "$SUPABASE_ACCESS_TOKEN" ] && [ -n "$SUPABASE_DB_PASSWORD" ] && [ -n "$SUPABASE_PROJECT_REF" ]; then
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::Supabase deploy skipped: set SUPABASE_ACCESS_TOKEN and SUPABASE_DB_PASSWORD secrets and the SUPABASE_PROJECT_REF variable (see README)."
+          fi
+      - uses: actions/checkout@v4
+        if: steps.configured.outputs.ok == 'true'
+      - uses: supabase/setup-cli@v1
+        if: steps.configured.outputs.ok == 'true'
+        with:
+          version: latest
+      - name: Apply migrations
+        if: steps.configured.outputs.ok == 'true'
+        run: |
+          supabase link --project-ref "$SUPABASE_PROJECT_REF"
+          supabase db push
+      - name: Deploy Edge Functions
+        if: steps.configured.outputs.ok == 'true'
+        run: supabase functions deploy upsert_book --project-ref "$SUPABASE_PROJECT_REF"
+
   deploy-web:
     name: Deploy web to Firebase Hosting
+    needs: deploy-backend
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -27,7 +59,13 @@ jobs:
       - run: flutter pub get
       - run: flutter analyze
       - run: flutter test
-      - run: flutter build web --release
+      # Backend settings come from repository variables; see ci.yml.
+      - run: >-
+          flutter build web --release
+          --dart-define=FLAVOR=dev
+          --dart-define=SUPABASE_URL=${{ vars.SUPABASE_URL }}
+          --dart-define=SUPABASE_ANON_KEY=${{ vars.SUPABASE_ANON_KEY }}
+          --dart-define=GOOGLE_BOOKS_API_KEY=${{ vars.GOOGLE_BOOKS_API_KEY }}
 
       # The project ID is read from the service account key so only one secret is needed.
       - name: Read Firebase project ID

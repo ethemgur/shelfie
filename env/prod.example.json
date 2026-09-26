@@ -3,5 +3,6 @@
   "SUPABASE_URL": "https://<project-ref>.supabase.co",
   "SUPABASE_ANON_KEY": "",
   "META_APP_ID": "",
+  "GOOGLE_BOOKS_API_KEY": "",
   "APP_DOMAIN": "shelfie.app"
 }

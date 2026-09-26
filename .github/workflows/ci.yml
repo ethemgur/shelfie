@@ -22,10 +22,22 @@ jobs:
           cache: true
 
       - run: flutter pub get
+      - name: Generated code is up to date
+        run: |
+          dart run build_runner build
+          git diff --exit-code -- lib
       - run: dart format --output=none --set-exit-if-changed .
       - run: flutter analyze
       - run: flutter test
-      - run: flutter build web --release
+      # Backend settings come from repository variables (Settings → Secrets
+      # and variables → Actions → Variables). Without them the site shows a
+      # "not configured" screen instead of crashing.
+      - run: >-
+          flutter build web --release
+          --dart-define=FLAVOR=dev
+          --dart-define=SUPABASE_URL=${{ vars.SUPABASE_URL }}
+          --dart-define=SUPABASE_ANON_KEY=${{ vars.SUPABASE_ANON_KEY }}
+          --dart-define=GOOGLE_BOOKS_API_KEY=${{ vars.GOOGLE_BOOKS_API_KEY }}
 
       - name: Read Firebase project ID
         id: project
@@ -42,3 +54,29 @@ jobs:
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           projectId: ${{ steps.project.outputs.id }}
           expires: 7d
+
+  database:
+    name: Database (migrations + RLS tests)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - run: supabase db start
+      - run: supabase test db
+
+  edge-functions:
+    name: Edge Functions (Deno)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: supabase/functions
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - run: deno fmt --check
+      - run: deno check upsert_book/index.ts
+      - run: deno test upsert_book/

@@ -22,6 +22,15 @@ abstract final class Env {
   /// Needed for Instagram Stories sharing (`source_application`).
   static const metaAppId = String.fromEnvironment('META_APP_ID');
 
+  /// Optional browser API key for Google Books (the keyless quota is shared
+  /// and runs out). Restrict it by HTTP referrer / app id in Google Cloud.
+  static const googleBooksApiKey = String.fromEnvironment(
+    'GOOGLE_BOOKS_API_KEY',
+  );
+
+  static bool get isConfigured =>
+      supabaseUrl.isNotEmpty && supabaseAnonKey.isNotEmpty;
+
   /// Public domain used in share footers and deep links. Placeholder until
   /// the final name is chosen.
   static const appDomain = String.fromEnvironment(

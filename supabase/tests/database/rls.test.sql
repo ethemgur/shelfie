@@ -2,6 +2,8 @@
 -- data). Run with `npx supabase test db`.
 --
 -- Cast: A = author, B = stranger, C = follows A, D = blocked by A.
+-- Assertions only count fixture rows, so this passes on a database that
+-- already has data (e.g. after local manual testing).
 begin;
 create extension if not exists pgtap with schema extensions;
 select plan(47);
@@ -20,7 +22,7 @@ insert into profiles (id, username, display_name) values
 insert into works (id, title, authors) values
   ('10000000-0000-0000-0000-000000000001', 'Work One', '{Someone}');
 insert into editions (id, work_id, isbn13, page_count, source) values
-  ('20000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001', '9780141439518', 384, 'open_library');
+  ('20000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001', '9780000000002', 384, 'open_library');
 insert into user_books (id, user_id, work_id, edition_id, shelf) values
   ('30000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-00000000000a', '10000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000000001', 'currently_reading'),
   ('30000000-0000-0000-0000-00000000000d', '00000000-0000-0000-0000-00000000000d', '10000000-0000-0000-0000-000000000001', null, 'want_to_read');
@@ -62,11 +64,11 @@ reset role;
 set local role authenticated;
 set local request.jwt.claims to '{"sub": "00000000-0000-0000-0000-00000000000b", "role": "authenticated"}';
 
-select is((select count(*) from profiles), 4::bigint, 'B: reads all profiles');
-select is((select count(*) from works), 1::bigint, 'B: reads works');
-select is((select count(*) from editions), 1::bigint, 'B: reads editions');
+select is((select count(*) from profiles where username in ('author', 'stranger', 'follower', 'blocked')), 4::bigint, 'B: reads all profiles');
+select is((select count(*) from works where id = '10000000-0000-0000-0000-000000000001'), 1::bigint, 'B: reads works');
+select is((select count(*) from editions where id = '20000000-0000-0000-0000-000000000001'), 1::bigint, 'B: reads editions');
 select results_eq(
-  $$ select quote from page_updates order by created_at $$,
+  $$ select quote from page_updates where user_id = '00000000-0000-0000-0000-00000000000a' order by created_at $$,
   $$ values ('public quote'::text) $$,
   'B: sees only A''s public, non-deleted update'
 );
@@ -146,22 +148,22 @@ select is((select count(*) from page_updates where user_id = '00000000-0000-0000
 set local role authenticated;
 set local request.jwt.claims to '{"sub": "00000000-0000-0000-0000-00000000000c", "role": "authenticated"}';
 select results_eq(
-  $$ select quote from page_updates order by created_at $$,
+  $$ select quote from page_updates where user_id = '00000000-0000-0000-0000-00000000000a' order by created_at $$,
   $$ values ('public quote'::text), ('followers quote'::text) $$,
   'C: sees public and followers-only updates, not private or deleted'
 );
-select is((select count(*) from comments), 1::bigint, 'C: sees B''s comment on a visible update');
+select is((select count(*) from comments where page_update_id = '40000000-0000-0000-0000-000000000001'), 1::bigint, 'C: sees B''s comment on a visible update');
 delete from comments where id = '60000000-0000-0000-0000-00000000000b';
 reset role;
-select is((select count(*) from comments), 1::bigint, 'C cannot delete B''s comment');
+select is((select count(*) from comments where id = '60000000-0000-0000-0000-00000000000b'), 1::bigint, 'C cannot delete B''s comment');
 
 -- ---------------------------------------------------------------- blocked D --
 set local role authenticated;
 set local request.jwt.claims to '{"sub": "00000000-0000-0000-0000-00000000000d", "role": "authenticated"}';
-select is((select count(*) from page_updates), 0::bigint, 'D: sees none of A''s updates');
+select is((select count(*) from page_updates where user_id = '00000000-0000-0000-0000-00000000000a'), 0::bigint, 'D: sees none of A''s updates');
 select is((select count(*) from user_books where user_id = '00000000-0000-0000-0000-00000000000a'), 0::bigint,
   'D: cannot see A''s shelves');
-select is((select count(*) from kudos), 0::bigint, 'D: sees no kudos on A''s updates');
+select is((select count(*) from kudos where page_update_id = '40000000-0000-0000-0000-000000000001'), 0::bigint, 'D: sees no kudos on A''s updates');
 select throws_ok(
   $$ insert into kudos (user_id, page_update_id) values ('00000000-0000-0000-0000-00000000000d', '40000000-0000-0000-0000-000000000001') $$,
   '42501', null, 'D: cannot give kudos to A'
@@ -175,7 +177,7 @@ reset role;
 -- ---------------------------------------------------------------- author A --
 set local role authenticated;
 set local request.jwt.claims to '{"sub": "00000000-0000-0000-0000-00000000000a", "role": "authenticated"}';
-select is((select count(*) from page_updates), 4::bigint, 'A: sees all own updates incl. private and deleted');
+select is((select count(*) from page_updates where user_id = '00000000-0000-0000-0000-00000000000a'), 4::bigint, 'A: sees all own updates incl. private and deleted');
 select is((select count(*) from user_books where user_id = '00000000-0000-0000-0000-00000000000d'), 0::bigint,
   'A: cannot see shelves of someone A blocked');
 select is((select count(*) from reports), 1::bigint, 'A: sees own reports');
@@ -188,7 +190,7 @@ select throws_ok(
   '42501', null, 'A: cannot change anything but read_at on notifications'
 );
 delete from comments where id = '60000000-0000-0000-0000-00000000000b';
-select is((select count(*) from comments), 0::bigint, 'A: can delete comments on own update');
+select is((select count(*) from comments where id = '60000000-0000-0000-0000-00000000000b'), 0::bigint, 'A: can delete comments on own update');
 
 -- Blocking removes follows both ways.
 insert into blocks (blocker_id, blocked_id) values

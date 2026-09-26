@@ -5,21 +5,25 @@ card to Instagram or TikTok, and get kudos from friends. Built in Flutter
 (iOS 15+, Android API 24+) with a Supabase backend.
 
 - Choices the spec doesn't cover: [`DECISIONS.md`](DECISIONS.md)
-- Status: **Phase 0** (setup and rendering spike)
+- Status: **Phase 1** (foundations: schema + RLS, auth, profiles, book search, shelves)
 
 ## Layout
 
 ```
 lib/
   app/        app widget, router, theme, env config
+  core/       pure helpers (ISBN, dates)
+  data/       models (freezed) and remote clients (Supabase, Open Library, Google Books)
   dev/        dev-flavour-only tools (rendering spike)
   features/
+    auth/ onboarding/ books/ library/ profile/ settings/ feed/
     share/    template engine, styles, off-screen renderer, share targets
   l10n/       ARB strings (+ generated code in l10n/gen)
 test/
   unit/       pure logic and renderer tests
   golden/     exported share images, pixel-compared
-supabase/     config.toml, migrations/, functions/
+  e2e/        Playwright test of the web build (see test/e2e/README.md)
+supabase/     config.toml, migrations/, functions/, tests/ (pgTAP), templates/
 env/          per-flavour build config (copy *.example.json)
 ```
 
@@ -45,6 +49,12 @@ flutter test                     # unit + golden
 flutter test --update-goldens    # after an intentional visual change (on Linux)
 ```
 
+After changing a `@freezed` model or `@riverpod` provider:
+
+```bash
+dart run build_runner build
+```
+
 ## Supabase
 
 Migrations live in `supabase/migrations/` and are managed with the Supabase CLI:
@@ -53,8 +63,33 @@ Migrations live in `supabase/migrations/` and are managed with the Supabase CLI:
 npx supabase start                   # local stack (needs Docker)
 npx supabase migration new <name>
 npx supabase db reset                # re-apply all migrations locally
-npx supabase db push                 # apply to the linked project
+npx supabase test db                 # RLS policy tests (supabase/tests)
+npx supabase functions serve         # Edge Functions locally
+cd supabase/functions && deno test upsert_book/
 ```
+
+### Hosted project setup (one time)
+
+1. Create a project at [supabase.com](https://supabase.com).
+2. **GitHub → Settings → Secrets and variables → Actions**:
+   - Secrets: `SUPABASE_ACCESS_TOKEN` (from supabase.com → Account → Access
+     Tokens) and `SUPABASE_DB_PASSWORD` (the database password).
+   - Variables: `SUPABASE_PROJECT_REF` (e.g. `abcdefghijklmnop`),
+     `SUPABASE_URL` (`https://<ref>.supabase.co`), `SUPABASE_ANON_KEY` (the
+     publishable / anon key, which is safe to expose), and optionally
+     `GOOGLE_BOOKS_API_KEY`.
+
+   On the next push to `main`, the Deploy workflow applies the migrations,
+   deploys `upsert_book`, and builds the web app against the project.
+3. In the Supabase dashboard, **Authentication**:
+   - URL Configuration: Site URL `https://<firebase-project>.web.app`;
+     additional redirect URLs `https://<firebase-project>.web.app`,
+     `https://*--<firebase-project>.web.app` (PR previews),
+     `com.shelfie.shelfie://login-callback/`.
+   - Email Templates → Magic Link and Confirm signup: paste
+     `supabase/templates/magic_link.html`, which includes the 6-digit code.
+   - Providers: enable Google and Apple (each needs its OAuth client set up
+     in Google Cloud / Apple Developer).
 
 ## Web deploy
 

@@ -52,6 +52,19 @@ final class SessionTemplateData extends TemplateData {
     return pct > 100 ? 100 : (pct * 100).roundToDouble() / 100;
   }
 
+  SessionTemplateData withoutCover() => SessionTemplateData(
+    title: title,
+    authors: authors,
+    fromPage: fromPage,
+    toPage: toPage,
+    pageCount: pageCount,
+    username: username,
+    photo: photo,
+    quote: quote,
+    mood: mood,
+    weeklyStreak: weeklyStreak,
+  );
+
   @override
   TemplateFamily get family => TemplateFamily.session;
 

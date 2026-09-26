@@ -1,0 +1,12 @@
+{
+  "name": "shelfie-e2e",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node web_phase1.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.56.0",
+    "serve": "^14.2.5"
+  }
+}

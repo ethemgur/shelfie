@@ -1,24 +1,67 @@
 {
   "@@locale": "en",
   "appName": "Shelfie",
-  "@appName": {"description": "Working app name. Replace once the final name is chosen."},
-
-  "homeComingSoon": "Your reading loop starts here.",
+  "@appName": {
+    "description": "Working app name. Replace once the final name is chosen."
+  },
   "devSpikeEntry": "Rendering spike",
-
   "sharePagesDelta": "+{count, plural, =1{1 page} other{{count} pages}}",
-  "@sharePagesDelta": {"placeholders": {"count": {"type": "int"}}},
+  "@sharePagesDelta": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "sharePageRange": "p.{from} → {to}",
-  "@sharePageRange": {"placeholders": {"from": {"type": "int"}, "to": {"type": "int"}}},
+  "@sharePageRange": {
+    "placeholders": {
+      "from": {
+        "type": "int"
+      },
+      "to": {
+        "type": "int"
+      }
+    }
+  },
   "shareProgressPercent": "{percent}%",
-  "@shareProgressPercent": {"placeholders": {"percent": {"type": "String"}}},
+  "@shareProgressPercent": {
+    "placeholders": {
+      "percent": {
+        "type": "String"
+      }
+    }
+  },
   "shareWeeklyStreak": "{count, plural, =1{1 week streak} other{{count} week streak}}",
-  "@shareWeeklyStreak": {"placeholders": {"count": {"type": "int"}}},
+  "@shareWeeklyStreak": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "shareProfileFooter": "{domain}/@{username}",
-  "@shareProfileFooter": {"placeholders": {"domain": {"type": "String"}, "username": {"type": "String"}}},
+  "@shareProfileFooter": {
+    "placeholders": {
+      "domain": {
+        "type": "String"
+      },
+      "username": {
+        "type": "String"
+      }
+    }
+  },
   "shareSlideCounter": "{index} / {total}",
-  "@shareSlideCounter": {"placeholders": {"index": {"type": "int"}, "total": {"type": "int"}}},
-
+  "@shareSlideCounter": {
+    "placeholders": {
+      "index": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
   "spikeTitle": "Rendering spike",
   "spikeRenderStory": "Render session_minimal (story)",
   "spikeRenderCarousel": "Render 3-slide carousel",
@@ -26,9 +69,194 @@
   "spikeShareSystem": "Share…",
   "spikeRendering": "Rendering…",
   "spikeResult": "{count, plural, =1{1 image} other{{count} images}} · {width}×{height} · {millis} ms",
-  "@spikeResult": {"placeholders": {"count": {"type": "int"}, "width": {"type": "int"}, "height": {"type": "int"}, "millis": {"type": "int"}}},
+  "@spikeResult": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "width": {
+        "type": "int"
+      },
+      "height": {
+        "type": "int"
+      },
+      "millis": {
+        "type": "int"
+      }
+    }
+  },
   "spikeError": "Render failed: {message}",
-  "@spikeError": {"placeholders": {"message": {"type": "String"}}},
+  "@spikeError": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
   "spikeCarouselHeadline": "Slide {index}",
-  "@spikeCarouselHeadline": {"placeholders": {"index": {"type": "int"}}}
+  "@spikeCarouselHeadline": {
+    "placeholders": {
+      "index": {
+        "type": "int"
+      }
+    }
+  },
+  "genericError": "Something went wrong. Please try again.",
+  "retry": "Retry",
+  "cancel": "Cancel",
+  "save": "Save",
+  "continueLabel": "Continue",
+  "optional": "Optional",
+  "fieldRequired": "Required",
+  "notConfigured": "This build has no backend configured ({flavor}). Build with --dart-define-from-file=env/<flavor>.json.",
+  "@notConfigured": {
+    "placeholders": {
+      "flavor": {
+        "type": "String"
+      }
+    }
+  },
+  "sessionLoadError": "Couldn't load your account. Check your connection.",
+  "tabFeed": "Feed",
+  "tabSearch": "Search",
+  "tabUpdate": "Update",
+  "tabLibrary": "Library",
+  "tabYou": "You",
+  "signInTagline": "Log your page. Share it. Get kudos.",
+  "signInWithApple": "Continue with Apple",
+  "signInWithGoogle": "Continue with Google",
+  "signInOr": "or",
+  "signInEmailLabel": "Email",
+  "signInEmailInvalid": "Enter a valid email address",
+  "signInSendLink": "Email me a sign-in link",
+  "signInCheckInbox": "We sent a sign-in link to {email}. Open it on this device, or enter the code from the email.",
+  "@signInCheckInbox": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "signInCodeLabel": "Code from the email",
+  "signInVerifyCode": "Sign in with code",
+  "signInUseDifferentEmail": "Use a different email",
+  "signOut": "Sign out",
+  "profileSetupTitle": "Create your profile",
+  "profileSetupAvatar": "Choose a profile photo",
+  "profileSetupAvatarHint": "Add a photo (optional)",
+  "profileSetupUsername": "Username",
+  "profileSetupUsernameRules": "3–20 characters: lowercase letters, numbers and _",
+  "profileSetupUsernameTaken": "That username is taken",
+  "profileSetupUsernameAvailable": "Username available",
+  "profileSetupDisplayName": "Display name",
+  "searchHint": "Title, author or ISBN",
+  "searchClear": "Clear",
+  "searchScan": "Scan barcode",
+  "searchEmptyHint": "Search for a book, or scan the barcode on the back.",
+  "searchNoResults": "No books found.",
+  "searchError": "Couldn't search right now. Check your connection.",
+  "searchCantFindIt": "Can't find it?",
+  "searchAddManually": "Add a book manually",
+  "searchFromGoogleBooks": "From Google Books",
+  "scanTitle": "Scan ISBN",
+  "scanTypeIsbn": "Or type the ISBN",
+  "scanLookUp": "Look up",
+  "scanInvalidIsbn": "That isn't a valid ISBN",
+  "scanCameraUnavailable": "Camera unavailable. Type the ISBN below instead.",
+  "manualAddTitle": "Add a book",
+  "manualAddBookTitle": "Title",
+  "manualAddAuthor": "Author",
+  "manualAddPageCount": "Number of pages",
+  "manualAddPageCountInvalid": "Enter a number between 1 and 20,000",
+  "manualAddCoverPhoto": "Add a cover photo",
+  "manualAddChangeCover": "Change cover photo",
+  "bookFormat": "Format",
+  "formatName": "{format, select, print{Print} ebook{Ebook} audiobook{Audiobook} other{Other}}",
+  "@formatName": {
+    "placeholders": {
+      "format": {
+        "type": "String"
+      }
+    }
+  },
+  "shelfName": "{shelf, select, wantToRead{Want to read} currentlyReading{Currently reading} read{Read} dnf{Did not finish} other{Other}}",
+  "@shelfName": {
+    "placeholders": {
+      "shelf": {
+        "type": "String"
+      }
+    }
+  },
+  "shelfWithCount": "{shelf} ({count})",
+  "@shelfWithCount": {
+    "placeholders": {
+      "shelf": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "bookEdition": "Edition",
+  "bookChangeEdition": "Change edition",
+  "bookPageCount": "{count, plural, =1{1 page} other{{count} pages}}",
+  "@bookPageCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "bookPageCountUnknown": "Page count unknown",
+  "bookIsbn": "ISBN {isbn}",
+  "@bookIsbn": {
+    "placeholders": {
+      "isbn": {
+        "type": "String"
+      }
+    }
+  },
+  "bookAddToShelf": "Add to a shelf",
+  "bookOnShelf": "Your shelf",
+  "bookProgress": "p.{page} of {total}",
+  "@bookProgress": {
+    "placeholders": {
+      "page": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "bookProgressLabel": "Reading progress",
+  "bookRemove": "Remove from library",
+  "bookRemoveConfirmTitle": "Remove this book?",
+  "bookRemoveConfirmBody": "It will be removed from your shelves.",
+  "bookYourRating": "Your rating",
+  "bookOneLineTake": "Your one-line take",
+  "editionsLoadError": "Couldn't load more editions.",
+  "libraryEmpty": "Nothing on this shelf yet.",
+  "findABook": "Find a book",
+  "openLibrary": "Go to your library",
+  "feedComingSoon": "Updates from readers you follow will show up here. For now, add the books you're reading.",
+  "updateComingSoon": "Logging your page is coming next. Add your books to your shelves now so they are ready.",
+  "youNothingReading": "You're not reading anything right now.",
+  "followCounts": "{followers} followers · {following} following",
+  "@followCounts": {
+    "placeholders": {
+      "followers": {
+        "type": "int"
+      },
+      "following": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsTitle": "Settings",
+  "settingsNoAiTitle": "No generative AI",
+  "settingsNoAiBody": "Shelfie doesn't use generative AI: no summaries, recaps or AI recommendations.",
+  "spikeCoverBlocked": "The cover host doesn't allow cross-origin reads on web, so this export has no cover.",
+  "spikeDownload": "Download"
 }

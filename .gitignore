@@ -50,3 +50,6 @@ app.*.map.json
 # Per-developer build config (copy from env/*.example.json)
 /env/*.json
 !/env/*.example.json
+
+# E2E test dependencies
+/test/e2e/node_modules/

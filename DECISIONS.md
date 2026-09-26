@@ -90,3 +90,95 @@ chosen.
   conditional import.
 - Flutter already uses `web/` for its web platform, so the Section 10 landing
   page will go in `landing/`.
+
+## Phase 1 — Foundations
+
+### Database
+- The schema follows Section 5 exactly, with these additions:
+  - Check constraints on the enum-like text columns (`editions.source`,
+    `user_books.source`, `page_updates.mood`, `share_events.format` and
+    `target`), plus an ISBN format check.
+  - `editions.created_by` (who added a `source = 'user'` edition). It
+    references `auth.users`, so manual adds work even before a profile exists.
+  - A few extra indexes (`user_books.work_id`, `kudos.page_update_id`,
+    `blocks.blocked_id`, `page_updates (user_book_id, created_at)`), and a
+    `simple` full-text index on `works.title`.
+  - `display_name` is limited to 1–50 characters.
+- **Follows RLS isn't in the spec.** Everyone signed in can read follows
+  (needed for counts), except rows involving someone in a block with the
+  viewer. You can only create follows as yourself, never across a block, and
+  only delete your own.
+- **Comments** are hard-deleted by their author or by the update's owner. The
+  `deleted_at` column stays for moderation.
+- `notifications`: users may only update `read_at`, enforced with a
+  column-level grant.
+- Block checks go through `is_blocked_between()` (SECURITY DEFINER), so a
+  user's queries respect blocks without them being able to see who blocked
+  them.
+- RPC parameters are prefixed (`p_cursor`, `p_limit`, …) because `limit` is a
+  reserved word. The RPCs other than `username_available` are stubs with their
+  final signatures.
+- Storage: public `avatars` and `covers` buckets. Users can only write inside
+  their own `<user id>/` folder.
+
+### upsert_book
+- Dedupes by ISBN-13 first, then by Open Library work key. For a known ISBN
+  it fills in missing fields (page count, cover, ISBN-10, publisher) and never
+  overwrites existing ones. Editions without an ISBN are reused when source,
+  format and page count match.
+- A manual (`source = 'user'`) book may only use a cover photo from the
+  caller's own `covers/<uid>/` folder.
+
+### Auth
+- Apple and Google use Supabase's **OAuth redirect flow** on every platform (a
+  browser tab on mobile, a same-tab redirect on web), not the native SDKs.
+  This needs no per-platform client setup and works on web. Native Sign in
+  with Apple can replace it before App Store review if needed.
+- The magic-link email also carries a 6-digit code (`supabase/templates/`),
+  for when the link opens in a different browser or device than the app.
+- The mobile auth callback is `com.shelfie.shelfie://login-callback/`.
+- Onboarding state lives on the server: a missing profile means onboarding
+  step 2. So a killed app resumes at the right step. Steps 3–7 and
+  `onboarding_completed_at` come with their phases.
+- A deep link opened while signed out is remembered (`?from=`) and opened after
+  sign-in and profile setup.
+
+### Books
+- Search runs our catalogue, Open Library and Google Books **in parallel** and
+  merges them in that priority order. Results are deduped by ISBN-13 and Open
+  Library work key, as the spec says. Key-less Google Books results are also
+  deduped by normalised title + first author, since otherwise they duplicate
+  Open Library works.
+- Open Library search results are work-level (no ISBN; median page count).
+  The exact edition comes from an ISBN scan or from **Change edition**, which
+  lists Open Library's editions of the work.
+- Google Books takes an optional `GOOGLE_BOOKS_API_KEY`. The keyless quota is
+  shared per IP and runs out.
+- When shelving a work without a chosen edition, the default edition is the
+  one with a page count, preferring print.
+- The Book page hides **Update page** until the update flow exists (Phase 2).
+  Rating and one-line take are editable for books on the Read shelf.
+
+### App
+- Shell: 5 tabs (Section 6.1). Feed and Update are honest "coming next"
+  screens, each with a working button, rather than dead ends.
+- **Library** in Phase 1 is a read-only shelf list with counts, so the
+  acceptance criterion ("add a book to a shelf") can be seen in the app.
+  Sorting, search, swipe actions and quick Update are Phase 2.
+- Writes to `user_books` go straight to Supabase in Phase 1. Phase 2 moves them
+  behind the offline outbox.
+- Codegen (`freezed`, `json_serializable`, `riverpod_generator`) output is
+  committed. CI checks that it's up to date.
+
+### Web
+- Path URL strategy, and `optionURLReflectsImperativeAPIs`, so pushed pages
+  (e.g. `/book/<id>`) show in the address bar and can be shared or reloaded.
+- Covers use `WebHtmlElementStrategy.fallback`: hosts without CORS headers
+  fall back to a plain `<img>`.
+- The rendering spike on web has no file system and no Instagram channel.
+  Exports stay in memory; **Share…** uses the Web Share API and falls back to
+  downloading, and **Download** saves the PNGs. The Instagram button is
+  hidden. If the cover host blocks cross-origin reads, the export is redone
+  without the cover and says so.
+- `test/e2e/` has a Playwright test that clicks through the whole Phase 1 flow
+  on the web build.

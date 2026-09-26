@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../share_format.dart';
@@ -16,7 +17,8 @@ class ExportResult {
     required this.elapsed,
   });
 
-  /// One PNG per slide, in slide order.
+  /// One PNG per slide, in slide order. Empty on web (no file system): use
+  /// [slides] bytes instead.
   final List<File> files;
   final List<RenderedSlide> slides;
   final Duration elapsed;
@@ -48,6 +50,14 @@ class ShareExporter {
       format: format,
       options: options,
     );
+    if (kIsWeb) {
+      stopwatch.stop();
+      return ExportResult(
+        files: const [],
+        slides: slides,
+        elapsed: stopwatch.elapsed,
+      );
+    }
     // Android's FileProvider exposes `<cache>/share/` to Instagram.
     final dir = Directory('${(await _tempDir()).path}/share');
     await dir.create(recursive: true);
