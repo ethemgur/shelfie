@@ -6,6 +6,8 @@ decided, why, and what would change it.
 ## Phase 0 — Setup & rendering spike
 
 ### Working name and ids
+Confirmed by the founder as the placeholders to use until the final name is
+chosen.
 - `[APP_NAME]` is **Shelfie** (the repo name) until the final name is chosen.
   It lives in `lib/l10n/app_en.arb` (`appName`), the Android `app_name`
   resValue and iOS `CFBundleDisplayName`.
@@ -80,12 +82,11 @@ decided, why, and what would change it.
 - If `META_APP_ID` is empty or Instagram isn't installed, sharing falls back to
   the system share sheet.
 
-### Open question: existing Flutter web deploy
+### Flutter web deploy (kept)
 - Before this spec, the repo deployed the Flutter **web** build to Firebase
-  Hosting on every push to `main`. The spec lists a web app as a non-goal, and
-  its landing page (Section 10) would sit in `web/`, which Flutter already
-  uses for its web platform.
-- Current choice: **left the Firebase web deploy untouched** (the web build
-  still compiles). Plan to put the Section 10 landing page in `landing/`
-  instead of `web/`. Whether to drop the Flutter web deploy is the founder's
-  call.
+  Hosting on every push to `main`. The spec lists a web app as a non-goal, but
+  the founder chose to **keep this deploy**, so the web build must keep
+  compiling. Plugins without web support need a web-safe fallback or a
+  conditional import.
+- Flutter already uses `web/` for its web platform, so the Section 10 landing
+  page will go in `landing/`.

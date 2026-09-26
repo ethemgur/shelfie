@@ -56,12 +56,12 @@ npx supabase db reset                # re-apply all migrations locally
 npx supabase db push                 # apply to the linked project
 ```
 
-## Web deploy (pre-existing)
+## Web deploy
 
 Every push to `main` builds the Flutter web app and deploys it to Firebase
 Hosting. Pull requests get a 7-day preview URL. This needs one GitHub secret,
-`FIREBASE_SERVICE_ACCOUNT`. Whether to keep this deploy is an open question in
-`DECISIONS.md`.
+`FIREBASE_SERVICE_ACCOUNT`. The web build must keep compiling (see
+`DECISIONS.md`).
 
 ### One-time setup
 
