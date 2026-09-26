@@ -15,11 +15,11 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
+        // Placeholder until the final name is chosen (see DECISIONS.md).
         applicationId = "com.shelfie.shelfie"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
+        minSdk = 24 // Spec: Android API 24+.
         targetSdk = flutter.targetSdkVersion
         // Uses the version code from pubspec.yaml. When using split APKs, 1000 * ABI_VERSION
         // is added automatically by Flutter. (https://developer.android.com/studio/build/configure-apk-splits#configure-APK-versions)
@@ -27,6 +27,24 @@ android {
         // flag during build.
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+    }
+
+    buildFeatures {
+        resValues = true
+    }
+
+    flavorDimensions += "env"
+    productFlavors {
+        create("dev") {
+            dimension = "env"
+            applicationIdSuffix = ".dev"
+            versionNameSuffix = "-dev"
+            resValue("string", "app_name", "Shelfie Dev")
+        }
+        create("prod") {
+            dimension = "env"
+            resValue("string", "app_name", "Shelfie")
+        }
     }
 
     buildTypes {
@@ -46,4 +64,9 @@ kotlin {
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    // FileProvider for the Instagram Stories channel.
+    implementation("androidx.core:core-ktx:1.16.0")
 }
