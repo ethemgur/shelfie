@@ -48,7 +48,7 @@ final class SessionGateProvider
   }
 }
 
-String _$sessionGateHash() => r'0bb74f6efbfbed5c67cefaa6cbb427fe1e763c2b';
+String _$sessionGateHash() => r'f09575daddd1b93614d91e9932d3cbc859aeda78';
 
 /// The signed-in user's profile, or null before onboarding.
 

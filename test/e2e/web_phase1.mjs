@@ -1,19 +1,20 @@
 // Web end-to-end test for Phase 1 (see test/e2e/README.md).
 //
-// Drives a release web build against a local Supabase stack: deep link while
-// signed out, magic-link sign-in (code read from Mailpit), profile setup,
-// search, book page, shelves, change edition, manual add, the rendering
-// spike's export buttons, sign out; then checks the rows in Postgres.
+// Drives a release web build (built with USE_FIREBASE_EMULATORS=true) against
+// the Firebase emulators: deep link while signed out, email-link sign-in (link
+// read from the Auth emulator), profile setup, search, book page, shelves,
+// change edition, manual add with a cover photo, the rendering spike's export
+// buttons, sign out; then checks the documents in Firestore.
 // Open Library / Google Books answers are fixtures so runs are deterministic.
 import { chromium } from 'playwright';
-import { execSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 const appUrl = process.env.APP_URL ?? 'http://localhost:3000';
-// Optional: where upsert_book really runs, if not behind the local gateway
-// (e.g. `deno run ... index.ts` on :8000 when the Docker edge runtime can't
-// reach npm).
-const functionsProxy = process.env.FUNCTIONS_PROXY;
+const project = 'demo-shelfie';
+const authEmulator = 'http://127.0.0.1:9099';
+const firestoreEmulator = 'http://127.0.0.1:8080';
 
 const shots = process.env.SHOTS;
 const email = `reader${Date.now()}@test.dev`;
@@ -53,17 +54,15 @@ await page.route('https://www.googleapis.com/**', (route) =>
   route.fulfill({ status: 200, contentType: 'application/json',
     headers: { 'access-control-allow-origin': '*' }, body: '{"totalItems":0}' }));
 await page.route('https://covers.openlibrary.org/**', (route) => route.abort());
-if (functionsProxy) await page.route('http://127.0.0.1:54321/functions/v1/upsert_book', async (route) => {
-  const req = route.request();
-  if (req.method() === 'OPTIONS') return route.fulfill({ status: 200,
-    headers: { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*' } });
-  const res = await fetch(functionsProxy, { method: 'POST',
-    headers: { authorization: req.headers()['authorization'], 'content-type': 'application/json' },
-    body: req.postData() });
-  route.fulfill({ status: res.status, contentType: 'application/json',
-    headers: { 'access-control-allow-origin': '*' }, body: await res.text() });
-});
-
+// Optional: serve the Firebase JS SDK (which Flutter web loads from gstatic)
+// from a local `firebase` npm package, for machines without internet.
+if (process.env.FIREBASE_JS_DIR) {
+  await page.route('https://www.gstatic.com/firebasejs/**', (route) => {
+    const file = new URL(route.request().url()).pathname.split('/').pop();
+    route.fulfill({ status: 200, contentType: 'application/javascript',
+      body: readFileSync(join(process.env.FIREBASE_JS_DIR, file)) });
+  });
+}
 async function shot(name) { if (shots) await page.screenshot({ path: `${shots}/${name}.png` }); }
 const byText = (t) => page.getByText(t, { exact: false }).filter({ visible: true }).first();
 async function tap(role, name) {
@@ -72,13 +71,27 @@ async function tap(role, name) {
   await el.click();
 }
 async function fill(label, value) {
-  const el = page.getByRole('textbox', { name: label }).filter({ visible: true }).first();
+  const el = page.getByRole('textbox', { name: label, exact: true }).filter({ visible: true }).first();
   await el.waitFor({ timeout: 15000 });
-  await el.click();
-  await el.fill(value);
+  // Type real keystrokes (setting the DOM value can bypass Flutter's text
+  // engine). Right after a screen opens, Flutter web may still be attaching
+  // its editing element and drop early keys, so check and retry.
+  for (let attempt = 1; ; attempt++) {
+    await el.click({ timeout: 5000 }).catch(() => {});
+    await page.waitForTimeout(200);
+    await page.keyboard.press('ControlOrMeta+A');
+    await page.keyboard.press('Backspace');
+    await page.keyboard.type(value, { delay: 10 });
+    await page.waitForTimeout(200);
+    if ((await el.inputValue().catch(() => '')) === value) return;
+    if (attempt === 5) throw new Error(`could not type into "${label}"`);
+  }
 }
 
 try {
+  // Start from empty emulators so catalogue contents are predictable.
+  await fetch(`${firestoreEmulator}/emulator/v1/projects/${project}/databases/(default)/documents`, { method: 'DELETE' });
+  await fetch(`${authEmulator}/emulator/v1/projects/${project}/accounts`, { method: 'DELETE' });
   await page.goto(`${appUrl}/library`);
   // Turn on Flutter's semantics tree so elements are addressable.
   await page.locator('flt-semantics-placeholder').waitFor({ state: 'attached', timeout: 30000 });
@@ -90,25 +103,33 @@ try {
   await fill('Email', email);
   await tap('button', 'Email me a sign-in link');
   await byText('We sent a sign-in link').waitFor({ timeout: 15000 });
-  log('magic link sent');
+  log('email link sent');
 
-  const msgs = await (await fetch(`http://127.0.0.1:54324/api/v1/search?query=to:${encodeURIComponent(email)}`)).json();
-  const msg = await (await fetch(`http://127.0.0.1:54324/api/v1/message/${msgs.messages[0].ID}`)).json();
-  const code = msg.Text.match(/\b(\d{6})\b/)[1];
-  log(`got code ${code} from the email`);
-  await fill('Code from the email', code);
-  await tap('button', 'Sign in with code');
+  // The Auth emulator exposes the sign-in link it "sent".
+  const codes = await (await fetch(`${authEmulator}/emulator/v1/projects/${project}/oobCodes`)).json();
+  const code = codes.oobCodes.filter((c) => c.email === email && c.requestType === 'EMAIL_SIGNIN').pop();
+  const link = new URL(code.oobLink);
+  const landing = new URL(link.searchParams.get('continueUrl'));
+  for (const key of ['apiKey', 'oobCode', 'mode', 'lang']) {
+    if (link.searchParams.get(key)) landing.searchParams.set(key, link.searchParams.get(key));
+  }
+  log(`opening the email link (${landing.pathname}?mode=${landing.searchParams.get('mode')})`);
+  await page.goto(landing.toString());
+  await page.locator('flt-semantics-placeholder').waitFor({ state: 'attached', timeout: 30000 });
+  await page.evaluate(() => document.querySelector('flt-semantics-placeholder').click());
 
   await byText('Create your profile').waitFor({ timeout: 15000 });
   log('signed in -> profile setup');
   await fill('Username', username);
-  await byText('Username available').waitFor({ timeout: 10000 }).catch(() => {});
+  await page.getByRole('img', { name: 'Username available' }).waitFor({ timeout: 10000 }).catch(() => {});
+  await page.waitForTimeout(500);
   await fill('Display name', 'Test Reader');
   await shot('02-profile');
   await tap('button', 'Continue');
 
-  await page.waitForURL((u) => u.pathname === '/library', { timeout: 15000 });
-  log(`profile created -> returned to ${new URL(page.url()).pathname}`);
+  await page.waitForURL((u) => u.pathname !== '/onboarding/profile', { timeout: 15000 });
+  log(`profile created -> ${new URL(page.url()).pathname}`);
+  await tap('tab', 'Library');
   await page.getByRole('tab', { name: 'Want to read (0)' }).waitFor({ timeout: 15000 });
   await page.getByRole('button', { name: 'Find a book' }).filter({ visible: true }).first().waitFor({ timeout: 15000 });
   log('empty library with shelf counts');
@@ -153,6 +174,14 @@ try {
   await fill('Title', 'My Zine');
   await fill('Author', 'Me');
   await fill('Number of pages', '40');
+  const cover = join(tmpdir(), 'e2e-cover.png');
+  writeFileSync(cover, Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAIAAAADCAIAAAA2iEnWAAAAFklEQVR4nGP8z8DAwMDAxMDAwMDAAAAhCgMBnL8rNAAAAABJRU5ErkJggg==', 'base64'));
+  const chooser = page.waitForEvent('filechooser', { timeout: 15000 });
+  await tap('button', /Add a cover photo/);
+  await (await chooser).setFiles(cover);
+  await page.getByRole('button', { name: /Change cover photo/ }).waitFor({ timeout: 15000 });
+  log('cover photo picked');
   await tap('button', 'Save');
   await page.getByRole('checkbox', { name: 'Want to read' }).filter({ visible: true }).first().waitFor({ timeout: 15000 });
   log('manual add opened its book page');
@@ -197,8 +226,39 @@ try {
   await page.getByRole('button', { name: 'Continue with Google' }).waitFor({ timeout: 15000 });
   log('signed out -> sign-in screen');
 
-  const sql = `select w.title, ub.shelf, e.isbn13, ub.started_at is not null as started, ub.finished_at is not null as finished from user_books ub join profiles p on p.id = ub.user_id join works w on w.id = ub.work_id left join editions e on e.id = ub.edition_id where p.username = '${username}' order by w.title`;
-  console.log(execSync(`docker exec supabase_db_shelfie psql -U postgres -c "${sql}"`).toString());
+  // Check what landed in Firestore (owner token bypasses rules).
+  const owner = { headers: { Authorization: 'Bearer owner' } };
+  const docs = async (collection) =>
+    ((await (await fetch(`${firestoreEmulator}/v1/projects/${project}/databases/(default)/documents/${collection}?pageSize=300`, owner)).json()).documents ?? []);
+  const field = (d, k) => {
+    const v = d.fields[k];
+    if (v === undefined || 'nullValue' in v) return null;
+    return v.stringValue ?? v.integerValue ?? v.timestampValue;
+  };
+  const profile = (await docs('profiles')).find((d) => field(d, 'username') === username);
+  const uid = profile.name.split('/').pop();
+  const works = Object.fromEntries((await docs('works')).map((d) => [d.name.split('/').pop(), d]));
+  const editions = Object.fromEntries((await docs('editions')).map((d) => [d.name.split('/').pop(), d]));
+  const mine = (await docs('userBooks')).filter((d) => field(d, 'userId') === uid);
+  const rows = mine.map((d) => {
+    const edition = editions[field(d, 'editionId')];
+    return {
+      title: field(works[field(d, 'workId')], 'title'),
+      shelf: field(d, 'shelf'),
+      isbn13: edition ? field(edition, 'isbn13') : null,
+      started: field(d, 'startedAt') !== null,
+      finished: field(d, 'finishedAt') !== null,
+      cover: edition && field(edition, 'coverUrl') ? 'uploaded' : '-',
+    };
+  }).sort((a, b) => a.title.localeCompare(b.title));
+  console.table(rows);
+  const usernameDoc = (await docs('usernames')).find((d) => d.name.endsWith(`/${username}`));
+  if (!usernameDoc || field(usernameDoc, 'uid') !== uid) throw new Error('username not claimed');
+  const [zine, pride] = rows;
+  if (rows.length !== 2 || pride.shelf !== 'read' || pride.isbn13 !== '9780141439518' || !pride.started || !pride.finished
+      || zine.shelf !== 'want_to_read' || zine.started || zine.finished || zine.cover !== 'uploaded') {
+    throw new Error('unexpected Firestore state');
+  }
   console.log('E2E PASS');
 } catch (e) {
   await shot('zz-failure');

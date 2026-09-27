@@ -10,7 +10,6 @@ import '../../data/remote/remote_providers.dart';
 import '../../l10n/gen/app_localizations.dart';
 import '../auth/session_gate.dart';
 import '../library/library_repository.dart';
-import 'profile_repository.dart';
 
 part 'you_screen.g.dart';
 
@@ -18,12 +17,12 @@ typedef FollowCounts = ({int followers, int following});
 
 @riverpod
 Future<FollowCounts> followCounts(Ref ref, String userId) async {
-  final db = ref.watch(supabaseProvider);
+  final follows = ref.watch(firestoreProvider).collection('follows');
   final results = await Future.wait([
-    db.from('follows').count().eq('followee_id', userId),
-    db.from('follows').count().eq('follower_id', userId),
+    follows.where('followeeId', isEqualTo: userId).count().get(),
+    follows.where('followerId', isEqualTo: userId).count().get(),
   ]);
-  return (followers: results[0], following: results[1]);
+  return (followers: results[0].count ?? 0, following: results[1].count ?? 0);
 }
 
 /// Own profile (Section 6.8). Stats, updates and recaps land in later phases.
@@ -36,7 +35,7 @@ class YouScreen extends ConsumerWidget {
     final theme = Theme.of(context);
     final profile = ref.watch(currentProfileProvider);
     if (profile == null) return const SizedBox.shrink();
-    final avatarUrl = ref.read(profileRepositoryProvider).avatarUrl(profile);
+    final avatarUrl = profile.avatarUrl;
     final counts = ref.watch(followCountsProvider(profile.id)).value;
     final reading = (ref.watch(myBooksProvider).value ?? const [])
         .where((b) => b.userBook.shelf == Shelf.currentlyReading)

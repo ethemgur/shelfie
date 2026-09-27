@@ -54,7 +54,7 @@ final class LibraryRepositoryProvider
   }
 }
 
-String _$libraryRepositoryHash() => r'fd47cf9e3f6d05bf15219c459d278f3935d48076';
+String _$libraryRepositoryHash() => r'633cd5e07f0f1fe9717e1fd3bce5d17e189c3333';
 
 @ProviderFor(myBooks)
 final myBooksProvider = MyBooksProvider._();

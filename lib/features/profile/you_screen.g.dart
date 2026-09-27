@@ -64,7 +64,7 @@ final class FollowCountsProvider
   }
 }
 
-String _$followCountsHash() => r'c5fa3579c112f5156b209084e22314cea0db4388';
+String _$followCountsHash() => r'1af2a39ba6def400e695fc7e0f4db36dcdf41427';
 
 final class FollowCountsFamily extends $Family
     with $FunctionalFamilyOverride<FutureOr<FollowCounts>, String> {

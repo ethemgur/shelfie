@@ -1,7 +1,31 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 part 'models.freezed.dart';
 part 'models.g.dart';
+
+/// Firestore stores times as [Timestamp]; tests and JSON may use strings.
+class TimestampConverter implements JsonConverter<DateTime?, Object?> {
+  const TimestampConverter();
+
+  @override
+  DateTime? fromJson(Object? json) => switch (json) {
+    Timestamp t => t.toDate(),
+    DateTime d => d,
+    String s => DateTime.parse(s),
+    _ => null,
+  };
+
+  @override
+  Object? toJson(DateTime? date) =>
+      date == null ? null : Timestamp.fromDate(date);
+}
+
+/// Builds a model map from a Firestore document, adding its id.
+Map<String, dynamic> withId(DocumentSnapshot<Map<String, dynamic>> doc) => {
+  ...?doc.data(),
+  'id': doc.id,
+};
 
 enum Shelf {
   @JsonValue('want_to_read')
@@ -48,11 +72,12 @@ abstract class Profile with _$Profile {
     required String username,
     required String displayName,
     String? avatarPath,
+    String? avatarUrl,
     String? bio,
     @Default(150) int weeklyPageGoal,
     @Default(Visibility.followers) Visibility defaultVisibility,
     @Default('UTC') String timezone,
-    DateTime? onboardingCompletedAt,
+    @TimestampConverter() DateTime? onboardingCompletedAt,
   }) = _Profile;
 
   factory Profile.fromJson(Map<String, dynamic> json) =>
@@ -106,12 +131,14 @@ abstract class UserBook with _$UserBook {
     int? pageCountOverride,
     required Shelf shelf,
     @Default(0) int currentPage,
-    DateTime? startedAt,
-    DateTime? finishedAt,
+
+    /// Local calendar dates, `yyyy-MM-dd`.
+    String? startedAt,
+    String? finishedAt,
     double? rating,
     String? reviewLine,
     @Default('app') String source,
-    DateTime? updatedAt,
+    @TimestampConverter() DateTime? updatedAt,
   }) = _UserBook;
 
   factory UserBook.fromJson(Map<String, dynamic> json) =>

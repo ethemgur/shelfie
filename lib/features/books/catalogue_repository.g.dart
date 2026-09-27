@@ -55,4 +55,4 @@ final class CatalogueRepositoryProvider
 }
 
 String _$catalogueRepositoryHash() =>
-    r'b5ccfda8ede3bba80f3f8ac29b1319b097ef792b';
+    r'5891db808390a5b440e6c883fd3cfece3648cf63';

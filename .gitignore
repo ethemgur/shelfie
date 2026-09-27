@@ -53,3 +53,7 @@ app.*.map.json
 
 # E2E test dependencies
 /test/e2e/node_modules/
+
+# Firebase emulator / CLI
+*-debug.log
+.firebase/

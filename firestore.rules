@@ -1,0 +1,322 @@
+rules_version = '2';
+
+// Security rules (spec Section 5, "RLS rules"). Every read and write needs a
+// signed-in user; signed-out clients can read nothing.
+//
+// Document ids encode relationships so rules can check them with exists():
+//   usernames/{username}                 → { uid }
+//   userBooks/{uid}_{workId}             one per user per work
+//   follows/{followerId}_{followeeId}
+//   blocks/{blockerId}_{blockedId}
+//   kudos/{uid}_{pageUpdateId}
+//
+// Rules aren't filters: list queries must constrain the fields a rule reads
+// (e.g. `where userId == X`). Lists that need per-row block checks across
+// many authors (feed, comments, "friends reading this") go through Cloud
+// Functions in Phase 4.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function me() {
+      return request.auth.uid;
+    }
+
+    function doc(coll, id) {
+      return /databases/$(database)/documents/$(coll)/$(id);
+    }
+
+    // Either user has blocked the other. exists() ignores rules, so this
+    // works although users can't read other people's blocks.
+    function blockedEither(a, b) {
+      return exists(doc('blocks', a + '_' + b)) || exists(doc('blocks', b + '_' + a));
+    }
+
+    function isFollowing(follower, followee) {
+      return exists(doc('follows', follower + '_' + followee));
+    }
+
+    // Section 5: owner always; others when not deleted, not blocked either
+    // way, and public, or followers-only and the viewer follows the owner.
+    function canSeeUpdate(u) {
+      return u.userId == me()
+        || (u.get('deletedAt', null) == null
+          && !blockedEither(u.userId, me())
+          && (u.visibility == 'public'
+            || (u.visibility == 'followers' && isFollowing(me(), u.userId))));
+    }
+
+    function optionalString(d, field, max) {
+      return d.get(field, null) == null || (d[field] is string && d[field].size() <= max);
+    }
+
+    function isDate(value) {
+      return value is string && value.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
+    }
+
+    function unchanged(fields) {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(fields);
+    }
+
+    // -------------------------------------------------------------- profiles
+    function validProfile(d) {
+      return d.keys().hasOnly(['username', 'displayName', 'avatarPath', 'avatarUrl', 'bio',
+          'weeklyPageGoal', 'defaultVisibility', 'timezone', 'onboardingCompletedAt', 'createdAt'])
+        && d.username is string && d.username.matches('^[a-z0-9_]{3,20}$')
+        && d.displayName is string && d.displayName.size() >= 1 && d.displayName.size() <= 50
+        && optionalString(d, 'bio', 160)
+        && (d.get('avatarPath', null) == null
+          || (d.avatarPath is string && d.avatarPath.matches('avatars/' + me() + '/[^/]+')))
+        && optionalString(d, 'avatarUrl', 2000)
+        && d.weeklyPageGoal is int && d.weeklyPageGoal >= 10 && d.weeklyPageGoal <= 5000
+        && d.defaultVisibility in ['public', 'followers', 'private']
+        && d.timezone is string && d.timezone.size() <= 64
+        && d.createdAt is timestamp;
+    }
+
+    // Anyone signed in can read profiles; users create and update only their
+    // own. The username is claimed in the same batch (see /usernames).
+    match /profiles/{uid} {
+      allow read: if signedIn();
+      allow create: if signedIn() && uid == me()
+        && validProfile(request.resource.data)
+        && request.resource.data.createdAt == request.time
+        && getAfter(doc('usernames', request.resource.data.username)).data.uid == me();
+      allow update: if signedIn() && uid == me()
+        && validProfile(request.resource.data)
+        && unchanged(['username', 'createdAt']);
+
+      // Push tokens: owner only.
+      match /deviceTokens/{token} {
+        allow read, delete: if signedIn() && uid == me();
+        allow create, update: if signedIn() && uid == me()
+          && request.resource.data.keys().hasOnly(['platform', 'updatedAt'])
+          && request.resource.data.platform in ['ios', 'android']
+          && request.resource.data.updatedAt == request.time;
+      }
+
+      // Closed weeks, written by the weekly job (Phase 5). Owner read-only.
+      match /weeklyResults/{weekStart} {
+        allow read: if signedIn() && uid == me();
+      }
+    }
+
+    // Username → uid, for uniqueness. Created once, together with the profile,
+    // and never changed here (renames come with Settings in Phase 5).
+    match /usernames/{name} {
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && name.matches('^[a-z0-9_]{3,20}$')
+        && request.resource.data.keys().hasOnly(['uid'])
+        && request.resource.data.uid == me()
+        && !exists(doc('profiles', me()))
+        && getAfter(doc('profiles', me())).data.username == name;
+    }
+
+    // ------------------------------------------------------ works, editions
+    // Read-only for clients; written by the upsertBook function.
+    match /works/{workId} {
+      allow read: if signedIn();
+    }
+    match /editions/{editionId} {
+      allow read: if signedIn();
+    }
+
+    // ------------------------------------------------------------ userBooks
+    function validUserBook(d) {
+      return d.keys().hasOnly(['userId', 'workId', 'editionId', 'pageCountOverride', 'shelf',
+          'currentPage', 'startedAt', 'finishedAt', 'rating', 'reviewLine', 'source',
+          'createdAt', 'updatedAt'])
+        && d.userId == me()
+        && d.workId is string
+        && d.shelf in ['want_to_read', 'currently_reading', 'read', 'dnf']
+        && d.currentPage is int && d.currentPage >= 0
+        && (d.get('pageCountOverride', null) == null
+          || (d.pageCountOverride is int && d.pageCountOverride > 0))
+        && (d.get('startedAt', null) == null || isDate(d.startedAt))
+        && (d.get('finishedAt', null) == null || isDate(d.finishedAt))
+        && (d.get('rating', null) == null
+          || (d.rating is number && d.rating >= 0.5 && d.rating <= 5
+            && math.floor(d.rating * 2) == d.rating * 2))
+        && optionalString(d, 'reviewLine', 280)
+        && d.source in ['app', 'goodreads_import', 'storygraph_import']
+        && d.updatedAt == request.time;
+    }
+
+    function editionOfWork(d) {
+      return d.get('editionId', null) == null
+        || get(doc('editions', d.editionId)).data.workId == d.workId;
+    }
+
+    // Owner full access; others can read unless blocked either way (shelves
+    // are public in the MVP).
+    match /userBooks/{id} {
+      // The id check lets owners look up an entry that doesn't exist yet
+      // ("is this book on my shelf?"), where resource is null.
+      allow read: if signedIn()
+        && (id.matches(me() + '_.+')
+          || resource.data.userId == me()
+          || !blockedEither(resource.data.userId, me()));
+      allow create: if signedIn()
+        && id == me() + '_' + request.resource.data.workId
+        && validUserBook(request.resource.data)
+        && request.resource.data.createdAt == request.time
+        && exists(doc('works', request.resource.data.workId))
+        && editionOfWork(request.resource.data);
+      allow update: if signedIn() && resource.data.userId == me()
+        && validUserBook(request.resource.data)
+        && unchanged(['userId', 'workId', 'createdAt'])
+        && editionOfWork(request.resource.data);
+      allow delete: if signedIn() && resource.data.userId == me();
+    }
+
+    // ---------------------------------------------------------- pageUpdates
+    function validPageUpdate(d) {
+      return d.keys().hasOnly(['userId', 'userBookId', 'workId', 'editionId', 'fromPage',
+          'toPage', 'pagesRead', 'pageCount', 'progressPct', 'isFinish', 'note', 'quote',
+          'mood', 'photoPath', 'visibility', 'localDate', 'createdAt', 'receivedAt',
+          'deletedAt'])
+        && d.fromPage is int && d.fromPage >= 0
+        && d.toPage is int && d.toPage >= 0
+        && d.pagesRead == (d.toPage > d.fromPage ? d.toPage - d.fromPage : 0)
+        && d.pageCount is int && d.pageCount > 0
+        && d.progressPct is number && d.progressPct >= 0 && d.progressPct <= 100
+        && d.isFinish is bool
+        && optionalString(d, 'note', 280)
+        && optionalString(d, 'quote', 400)
+        && (d.get('mood', null) == null
+          || d.mood in ['cosy', 'gripped', 'emotional', 'funny', 'thoughtful', 'slow going'])
+        && (d.get('photoPath', null) == null
+          || (d.photoPath is string && d.photoPath.matches('photos/' + me() + '/[^/]+')))
+        && d.visibility in ['public', 'followers', 'private']
+        && isDate(d.localDate)
+        && d.createdAt is timestamp;
+    }
+
+    // Owner full access (on their own books only); others per canSeeUpdate.
+    // Soft delete only (deletedAt).
+    match /pageUpdates/{id} {
+      allow read: if signedIn() && canSeeUpdate(resource.data);
+      allow create: if signedIn()
+        && request.resource.data.userId == me()
+        && validPageUpdate(request.resource.data)
+        && request.resource.data.receivedAt == request.time
+        && 'deletedAt' in request.resource.data
+        && request.resource.data.deletedAt == null
+        && get(doc('userBooks', request.resource.data.userBookId)).data.userId == me()
+        && request.resource.data.userBookId == me() + '_' + request.resource.data.workId;
+      allow update: if signedIn() && resource.data.userId == me()
+        && validPageUpdate(request.resource.data)
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['deletedAt', 'photoPath', 'note', 'quote', 'mood', 'visibility']);
+    }
+
+    // --------------------------------------------------------------- follows
+    // Readable by everyone signed in (counts, profiles). Follow only as
+    // yourself, never across a block; unfollow only yourself.
+    match /follows/{id} {
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['followerId', 'followeeId', 'createdAt'])
+        && request.resource.data.followerId == me()
+        && request.resource.data.followeeId != me()
+        && id == me() + '_' + request.resource.data.followeeId
+        && request.resource.data.createdAt == request.time
+        && exists(doc('profiles', request.resource.data.followeeId))
+        && !blockedEither(me(), request.resource.data.followeeId);
+      allow delete: if signedIn() && resource.data.followerId == me();
+    }
+
+    // ----------------------------------------------------------------- blocks
+    // Owner only. The onBlockCreated function removes follows both ways.
+    match /blocks/{id} {
+      allow read, delete: if signedIn() && resource.data.blockerId == me();
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['blockerId', 'blockedId', 'createdAt'])
+        && request.resource.data.blockerId == me()
+        && request.resource.data.blockedId != me()
+        && id == me() + '_' + request.resource.data.blockedId
+        && request.resource.data.createdAt == request.time;
+    }
+
+    // ------------------------------------------------------ kudos, comments
+    // Only on updates the viewer can see. Lists of other people's kudos and
+    // comments come from a Cloud Function (Phase 4) so blocked users are
+    // filtered out; clients may list their own kudos (viewer_has_kudos).
+    match /kudos/{id} {
+      allow get: if signedIn()
+        && (resource.data.userId == me()
+          || (canSeeUpdate(get(doc('pageUpdates', resource.data.pageUpdateId)).data)
+            && !blockedEither(resource.data.userId, me())));
+      allow list: if signedIn() && resource.data.userId == me();
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['userId', 'pageUpdateId', 'createdAt'])
+        && request.resource.data.userId == me()
+        && id == me() + '_' + request.resource.data.pageUpdateId
+        && request.resource.data.createdAt == request.time
+        && canSeeUpdate(get(doc('pageUpdates', request.resource.data.pageUpdateId)).data);
+      allow delete: if signedIn() && resource.data.userId == me();
+    }
+
+    match /comments/{id} {
+      allow get: if signedIn()
+        && resource.data.get('deletedAt', null) == null
+        && canSeeUpdate(get(doc('pageUpdates', resource.data.pageUpdateId)).data)
+        && !blockedEither(resource.data.userId, me());
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['pageUpdateId', 'userId', 'body', 'anchorPct',
+          'createdAt', 'deletedAt'])
+        && request.resource.data.userId == me()
+        && request.resource.data.body is string
+        && request.resource.data.body.size() >= 1 && request.resource.data.body.size() <= 500
+        && (request.resource.data.get('anchorPct', null) == null
+          || (request.resource.data.anchorPct is number
+            && request.resource.data.anchorPct >= 0 && request.resource.data.anchorPct <= 100))
+        && request.resource.data.get('deletedAt', null) == null
+        && request.resource.data.createdAt == request.time
+        && canSeeUpdate(get(doc('pageUpdates', request.resource.data.pageUpdateId)).data);
+      // Delete own comments, or any comment on your own update.
+      allow delete: if signedIn()
+        && (resource.data.userId == me()
+          || get(doc('pageUpdates', resource.data.pageUpdateId)).data.userId == me());
+    }
+
+    // ------------------------------------------- reports, shareEvents: owner
+    match /reports/{id} {
+      allow read: if signedIn() && resource.data.reporterId == me();
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['reporterId', 'targetType', 'targetId',
+          'reason', 'createdAt'])
+        && request.resource.data.reporterId == me()
+        && request.resource.data.targetType in ['page_update', 'comment', 'profile']
+        && request.resource.data.targetId is string
+        && request.resource.data.reason is string
+        && request.resource.data.reason.size() >= 1 && request.resource.data.reason.size() <= 1000
+        && request.resource.data.createdAt == request.time;
+    }
+
+    match /shareEvents/{id} {
+      allow read: if signedIn() && resource.data.userId == me();
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['userId', 'templateId', 'family', 'format',
+          'target', 'sourceId', 'createdAt'])
+        && request.resource.data.userId == me()
+        && request.resource.data.format in ['story', 'post', 'sticker', 'carousel']
+        && request.resource.data.target in ['instagram_stories', 'system_share',
+          'save_to_photos', 'copy_link']
+        && request.resource.data.createdAt == request.time;
+    }
+
+    // --------------------------------------------------------- notifications
+    // Owner can read and mark read (readAt only). Created by Cloud Functions.
+    match /notifications/{id} {
+      allow read: if signedIn() && resource.data.userId == me();
+      allow update: if signedIn() && resource.data.userId == me()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readAt'])
+        && request.resource.data.readAt == request.time;
+    }
+  }
+}

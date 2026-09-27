@@ -107,7 +107,7 @@ void main() {
     });
   });
 
-  test('BookCandidate.toUpsertBody matches the upsert_book contract', () {
+  test('BookCandidate.toUpsertBody matches the upsertBook contract', () {
     const book = BookCandidate(
       title: 'My Zine',
       authors: ['Me'],
@@ -120,6 +120,6 @@ void main() {
     expect(body['work'], containsPair('authors', ['Me']));
     expect(body['edition'], containsPair('source', 'user'));
     expect(body['edition'], containsPair('format', 'ebook'));
-    expect(body['edition'], containsPair('page_count', 40));
+    expect(body['edition'], containsPair('pageCount', 40));
   });
 }

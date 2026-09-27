@@ -1,4 +1,4 @@
-/// ISBN helpers. Mirrors `supabase/functions/upsert_book/validate.ts`.
+/// ISBN helpers. Mirrors `functions/src/validate.ts`.
 abstract final class Isbn {
   /// Strips spaces/hyphens and upper-cases a trailing x.
   static String clean(String raw) =>

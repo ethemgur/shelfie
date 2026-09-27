@@ -1,0 +1,26 @@
+rules_version = '2';
+
+// Avatars and manual-add cover photos: anyone can read (they're shown on
+// public profiles and share images); users write only inside their own
+// `<uid>/` folder, images up to 5 MB.
+service firebase.storage {
+  match /b/{bucket}/o {
+    function ownImage(uid) {
+      return request.auth != null && request.auth.uid == uid
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/(jpeg|png|webp)');
+    }
+
+    match /avatars/{uid}/{file} {
+      allow read: if true;
+      allow create, update: if ownImage(uid);
+      allow delete: if request.auth != null && request.auth.uid == uid;
+    }
+
+    match /covers/{uid}/{file} {
+      allow read: if true;
+      allow create, update: if ownImage(uid);
+      allow delete: if request.auth != null && request.auth.uid == uid;
+    }
+  }
+}

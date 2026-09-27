@@ -1,5 +1,6 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/isbn.dart';
 import '../../data/models/models.dart';
@@ -10,78 +11,75 @@ part 'catalogue_repository.g.dart';
 
 typedef CatalogueIds = ({String workId, String editionId});
 
-/// Our own `works` / `editions` tables. Read directly (RLS allows it); written
-/// only through the `upsert_book` Edge Function.
+/// Our own `works` / `editions` collections. Read directly (rules allow it);
+/// written only through the `upsertBook` Cloud Function.
 class CatalogueRepository {
-  CatalogueRepository(this._db);
+  CatalogueRepository(this._db, this._functions);
 
-  final SupabaseClient _db;
+  final FirebaseFirestore _db;
+  final FirebaseFunctions _functions;
 
-  static const _editionColumns =
-      'id, work_id, isbn13, isbn10, format, page_count, publisher, '
-      'published_date, language, cover_url, source';
+  CollectionReference<Map<String, dynamic>> get _works =>
+      _db.collection('works');
+  CollectionReference<Map<String, dynamic>> get _editions =>
+      _db.collection('editions');
 
-  /// Title (or exact ISBN) matches already in our catalogue.
+  /// Exact ISBN, or title-prefix matches already in our catalogue.
   Future<List<BookCandidate>> search(String query, {int limit = 10}) async {
     final isbn = Isbn.normalize13(query);
     if (isbn != null) {
-      final rows = await _db
-          .from('editions')
-          .select('$_editionColumns, work:works(*)')
-          .eq('isbn13', isbn)
-          .limit(1);
-      return [
-        for (final row in rows)
-          _candidate(
-            Work.fromJson(row['work'] as Map<String, dynamic>),
-            Edition.fromJson(row),
-          ),
-      ];
+      // Editions with an ISBN use it as their document id.
+      final edition = await _editions.doc(isbn).get();
+      if (!edition.exists) return const [];
+      final e = Edition.fromJson(withId(edition));
+      final work = await _works.doc(e.workId).get();
+      return [_candidate(Work.fromJson(withId(work)), e)];
     }
-    final escaped = query.replaceAll(RegExp(r'[%_\\]'), '');
-    final rows = await _db
-        .from('works')
-        .select('*, editions($_editionColumns)')
-        .ilike('title', '%$escaped%')
-        .limit(limit);
-    return [
-      for (final row in rows)
-        _candidate(
-          Work.fromJson(row),
-          defaultEdition([
-            for (final e in row['editions'] as List)
-              Edition.fromJson(e as Map<String, dynamic>),
-          ]),
+    // Prefix match: \uf8ff sorts after every other character.
+    final prefix = query.trim().toLowerCase();
+    final works = await _works
+        .where('titleLower', isGreaterThanOrEqualTo: prefix)
+        .where('titleLower', isLessThan: '$prefix\uf8ff')
+        .limit(limit)
+        .get();
+    return Future.wait([
+      for (final doc in works.docs)
+        editions(doc.id).then(
+          (list) =>
+              _candidate(Work.fromJson(withId(doc)), defaultEdition(list)),
         ),
-    ];
+    ]);
   }
 
   /// Writes a search result into the catalogue (or finds its existing row).
-  Future<CatalogueIds> upsert(BookCandidate candidate) async {
+  /// [coverPath] is a manual book's cover photo in Storage.
+  Future<CatalogueIds> upsert(
+    BookCandidate candidate, {
+    String? coverPath,
+  }) async {
     if (candidate.workId != null && candidate.editionId != null) {
       return (workId: candidate.workId!, editionId: candidate.editionId!);
     }
-    final response = await _db.functions.invoke(
-      'upsert_book',
-      body: candidate.toUpsertBody(),
-    );
-    final data = response.data as Map<String, dynamic>;
+    final result = await _functions.httpsCallable('upsertBook').call<Object?>({
+      ...candidate.toUpsertBody(),
+      'coverPath': ?coverPath,
+    });
+    final data = (result.data as Map).cast<String, dynamic>();
     return (
-      workId: data['work_id'] as String,
-      editionId: data['edition_id'] as String,
+      workId: data['workId'] as String,
+      editionId: data['editionId'] as String,
     );
   }
 
   Future<Work> work(String workId) async =>
-      Work.fromJson(await _db.from('works').select().eq('id', workId).single());
+      Work.fromJson(withId(await _works.doc(workId).get()));
 
   Future<List<Edition>> editions(String workId) async {
-    final rows = await _db
-        .from('editions')
-        .select(_editionColumns)
-        .eq('work_id', workId)
-        .order('created_at');
-    return [for (final row in rows) Edition.fromJson(row)];
+    final docs = await _editions
+        .where('workId', isEqualTo: workId)
+        .orderBy('createdAt')
+        .get();
+    return [for (final doc in docs.docs) Edition.fromJson(withId(doc))];
   }
 
   /// The edition to shelve a work with when the user hasn't picked one:
@@ -111,5 +109,7 @@ class CatalogueRepository {
 }
 
 @Riverpod(keepAlive: true)
-CatalogueRepository catalogueRepository(Ref ref) =>
-    CatalogueRepository(ref.watch(supabaseProvider));
+CatalogueRepository catalogueRepository(Ref ref) => CatalogueRepository(
+  ref.watch(firestoreProvider),
+  ref.watch(functionsProvider),
+);

@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 
 import '../../app/routes.dart';
 import '../../data/models/models.dart';
@@ -51,26 +51,24 @@ class _ManualAddScreenState extends ConsumerState<ManualAddScreen> {
     if (mounted) setState(() => _cover = bytes);
   }
 
+  /// Uploads the cover photo to `covers/<uid>/` and returns its Storage
+  /// path; `upsertBook` checks it and turns it into a URL.
   Future<String?> _uploadCover() async {
     if (_cover == null) return null;
-    final db = ref.read(supabaseProvider);
-    final path =
-        '${db.auth.currentUser!.id}/${DateTime.now().millisecondsSinceEpoch}.jpg';
-    await db.storage
-        .from('covers')
-        .uploadBinary(
-          path,
-          _cover!,
-          fileOptions: const FileOptions(contentType: 'image/jpeg'),
-        );
-    return db.storage.from('covers').getPublicUrl(path);
+    final uid = ref.read(firebaseAuthProvider).currentUser!.uid;
+    final path = 'covers/$uid/${DateTime.now().millisecondsSinceEpoch}.jpg';
+    await ref
+        .read(storageProvider)
+        .ref(path)
+        .putData(_cover!, SettableMetadata(contentType: 'image/jpeg'));
+    return path;
   }
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _saving = true);
     try {
-      final coverUrl = await _uploadCover();
+      final coverPath = await _uploadCover();
       final ids = await ref
           .read(catalogueRepositoryProvider)
           .upsert(
@@ -79,9 +77,9 @@ class _ManualAddScreenState extends ConsumerState<ManualAddScreen> {
               authors: [_author.text.trim()],
               pageCount: int.parse(_pages.text.trim()),
               format: _format,
-              coverUrl: coverUrl,
               source: BookSource.user,
             ),
+            coverPath: coverPath,
           );
       if (mounted) {
         // Replace the form in browser history too, so Back skips it on web.

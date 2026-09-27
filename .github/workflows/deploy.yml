@@ -14,39 +14,42 @@ permissions:
 
 jobs:
   deploy-backend:
-    name: Deploy Supabase (migrations + functions)
+    name: Deploy Firestore/Storage rules + Cloud Functions
     runs-on: ubuntu-latest
-    env:
-      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
-      SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
     steps:
-      - name: Check Supabase deploy settings
-        id: configured
+      - name: Check backend deploy is enabled
+        id: enabled
         run: |
-          if [ -n "$SUPABASE_ACCESS_TOKEN" ] && [ -n "$SUPABASE_DB_PASSWORD" ] && [ -n "$SUPABASE_PROJECT_REF" ]; then
+          if [ "${{ vars.DEPLOY_FIREBASE_BACKEND }}" = "true" ]; then
             echo "ok=true" >> "$GITHUB_OUTPUT"
           else
-            echo "::notice::Supabase deploy skipped: set SUPABASE_ACCESS_TOKEN and SUPABASE_DB_PASSWORD secrets and the SUPABASE_PROJECT_REF variable (see README)."
+            echo "::notice::Firebase backend deploy skipped. Upgrade the project to the Blaze plan, grant the deploy service account its roles, then set the DEPLOY_FIREBASE_BACKEND repository variable to true (see README)."
           fi
       - uses: actions/checkout@v4
-        if: steps.configured.outputs.ok == 'true'
-      - uses: supabase/setup-cli@v1
-        if: steps.configured.outputs.ok == 'true'
+        if: steps.enabled.outputs.ok == 'true'
+      - uses: actions/setup-node@v4
+        if: steps.enabled.outputs.ok == 'true'
         with:
-          version: latest
-      - name: Apply migrations
-        if: steps.configured.outputs.ok == 'true'
+          node-version: 22
+          cache: npm
+          cache-dependency-path: functions/package-lock.json
+      - name: Install functions dependencies
+        if: steps.enabled.outputs.ok == 'true'
+        run: npm ci --prefix functions
+      - name: Deploy
+        if: steps.enabled.outputs.ok == 'true'
+        env:
+          SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
         run: |
-          supabase link --project-ref "$SUPABASE_PROJECT_REF"
-          supabase db push
-      - name: Deploy Edge Functions
-        if: steps.configured.outputs.ok == 'true'
-        run: supabase functions deploy upsert_book --project-ref "$SUPABASE_PROJECT_REF"
+          echo "$SERVICE_ACCOUNT" > "$RUNNER_TEMP/sa.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json"
+          PROJECT_ID=$(jq -r .project_id "$RUNNER_TEMP/sa.json")
+          npx --prefix functions firebase deploy \
+            --only firestore,storage,functions \
+            --project "$PROJECT_ID" --non-interactive --force
 
   deploy-web:
     name: Deploy web to Firebase Hosting
-    needs: deploy-backend
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -59,12 +62,10 @@ jobs:
       - run: flutter pub get
       - run: flutter analyze
       - run: flutter test
-      # Backend settings come from repository variables; see ci.yml.
+      # No Firebase config is compiled in; see ci.yml.
       - run: >-
           flutter build web --release
           --dart-define=FLAVOR=dev
-          --dart-define=SUPABASE_URL=${{ vars.SUPABASE_URL }}
-          --dart-define=SUPABASE_ANON_KEY=${{ vars.SUPABASE_ANON_KEY }}
           --dart-define=GOOGLE_BOOKS_API_KEY=${{ vars.GOOGLE_BOOKS_API_KEY }}
 
       # The project ID is read from the service account key so only one secret is needed.

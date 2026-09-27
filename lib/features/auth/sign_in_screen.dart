@@ -1,11 +1,11 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../l10n/gen/app_localizations.dart';
 import 'auth_repository.dart';
 
-/// Onboarding step 1: Apple / Google / email magic link.
+/// Onboarding step 1: Apple / Google / email link.
 class SignInScreen extends ConsumerStatefulWidget {
   const SignInScreen({super.key});
 
@@ -15,16 +15,36 @@ class SignInScreen extends ConsumerStatefulWidget {
 
 class _SignInScreenState extends ConsumerState<SignInScreen> {
   final _email = TextEditingController();
-  final _code = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   String? _sentTo;
   bool _busy = false;
 
+  /// Set when the app was opened from an email link that still needs the
+  /// address it was sent to (opened in another browser or device).
+  String? _pendingLink;
+
+  @override
+  void initState() {
+    super.initState();
+    _completeEmailLink();
+  }
+
   @override
   void dispose() {
     _email.dispose();
-    _code.dispose();
     super.dispose();
+  }
+
+  Future<void> _completeEmailLink() async {
+    final link = ref.read(initialLinkProvider);
+    final auth = ref.read(authRepositoryProvider);
+    if (link == null || !auth.isEmailLink(link)) return;
+    final email = await auth.pendingEmail();
+    if (email == null) {
+      if (mounted) setState(() => _pendingLink = link);
+      return;
+    }
+    await _run(() => auth.completeEmailLink(email, link));
   }
 
   /// Runs [action] with the buttons disabled; true if it succeeded.
@@ -33,8 +53,12 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
     try {
       await action();
       return true;
-    } on AuthException catch (e) {
-      _showError(e.message);
+    } on FirebaseAuthException catch (e) {
+      final cancelled =
+          e.code == 'popup-closed-by-user' || e.code == 'web-context-canceled';
+      if (!cancelled && mounted) {
+        _showError(e.message ?? AppLocalizations.of(context).genericError);
+      }
       return false;
     } catch (e) {
       if (mounted) _showError(AppLocalizations.of(context).genericError);
@@ -50,12 +74,16 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
         .showSnackBar(SnackBar(content: Text(message)));
   }
 
-  Future<void> _sendLink() async {
+  Future<void> _submitEmail() async {
     if (!_formKey.currentState!.validate()) return;
     final email = _email.text.trim();
-    final sent = await _run(
-      () => ref.read(authRepositoryProvider).sendMagicLink(email),
-    );
+    final auth = ref.read(authRepositoryProvider);
+    final link = _pendingLink;
+    if (link != null) {
+      await _run(() => auth.completeEmailLink(email, link));
+      return;
+    }
+    final sent = await _run(() => auth.sendEmailLink(email));
     if (sent && mounted) setState(() => _sentTo = email);
   }
 
@@ -118,13 +146,33 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                       ],
                     ),
                     const SizedBox(height: 20),
-                    if (_sentTo == null) ...[
+                    if (_sentTo != null) ...[
+                      Text(
+                        l10n.signInCheckInbox(_sentTo!),
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.bodyLarge,
+                      ),
+                      TextButton(
+                        onPressed: _busy
+                            ? null
+                            : () => setState(() => _sentTo = null),
+                        child: Text(l10n.signInUseDifferentEmail),
+                      ),
+                    ] else ...[
+                      if (_pendingLink != null) ...[
+                        Text(
+                          l10n.signInConfirmEmail,
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.bodyLarge,
+                        ),
+                        const SizedBox(height: 12),
+                      ],
                       TextFormField(
                         controller: _email,
                         keyboardType: TextInputType.emailAddress,
                         autofillHints: const [AutofillHints.email],
                         textInputAction: TextInputAction.send,
-                        onFieldSubmitted: (_) => _sendLink(),
+                        onFieldSubmitted: (_) => _submitEmail(),
                         decoration: InputDecoration(
                           labelText: l10n.signInEmailLabel,
                           border: const OutlineInputBorder(),
@@ -137,40 +185,12 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                       ),
                       const SizedBox(height: 12),
                       FilledButton.tonal(
-                        onPressed: _busy ? null : _sendLink,
-                        child: Text(l10n.signInSendLink),
-                      ),
-                    ] else ...[
-                      Text(
-                        l10n.signInCheckInbox(_sentTo!),
-                        textAlign: TextAlign.center,
-                        style: theme.textTheme.bodyLarge,
-                      ),
-                      const SizedBox(height: 16),
-                      TextField(
-                        controller: _code,
-                        keyboardType: TextInputType.number,
-                        autofillHints: const [AutofillHints.oneTimeCode],
-                        decoration: InputDecoration(
-                          labelText: l10n.signInCodeLabel,
-                          border: const OutlineInputBorder(),
+                        onPressed: _busy ? null : _submitEmail,
+                        child: Text(
+                          _pendingLink != null
+                              ? l10n.signInFinish
+                              : l10n.signInSendLink,
                         ),
-                      ),
-                      const SizedBox(height: 12),
-                      FilledButton.tonal(
-                        onPressed: _busy
-                            ? null
-                            : () => _run(
-                                () =>
-                                    auth.verifyEmailCode(_sentTo!, _code.text),
-                              ),
-                        child: Text(l10n.signInVerifyCode),
-                      ),
-                      TextButton(
-                        onPressed: _busy
-                            ? null
-                            : () => setState(() => _sentTo = null),
-                        child: Text(l10n.signInUseDifferentEmail),
                       ),
                     ],
                   ],

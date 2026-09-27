@@ -108,7 +108,7 @@
   "continueLabel": "Continue",
   "optional": "Optional",
   "fieldRequired": "Required",
-  "notConfigured": "This build has no backend configured ({flavor}). Build with --dart-define-from-file=env/<flavor>.json.",
+  "notConfigured": "This build has no Firebase project configured ({flavor}). On Firebase Hosting, register a Web app in the Firebase project; elsewhere, build with --dart-define-from-file=env/<flavor>.json.",
   "@notConfigured": {
     "placeholders": {
       "flavor": {
@@ -129,7 +129,7 @@
   "signInEmailLabel": "Email",
   "signInEmailInvalid": "Enter a valid email address",
   "signInSendLink": "Email me a sign-in link",
-  "signInCheckInbox": "We sent a sign-in link to {email}. Open it on this device, or enter the code from the email.",
+  "signInCheckInbox": "We sent a sign-in link to {email}. Open it on this device to sign in.",
   "@signInCheckInbox": {
     "placeholders": {
       "email": {
@@ -137,8 +137,6 @@
       }
     }
   },
-  "signInCodeLabel": "Code from the email",
-  "signInVerifyCode": "Sign in with code",
   "signInUseDifferentEmail": "Use a different email",
   "signOut": "Sign out",
   "profileSetupTitle": "Create your profile",
@@ -258,5 +256,7 @@
   "settingsNoAiTitle": "No generative AI",
   "settingsNoAiBody": "Shelfie doesn't use generative AI: no summaries, recaps or AI recommendations.",
   "spikeCoverBlocked": "The cover host doesn't allow cross-origin reads on web, so this export has no cover.",
-  "spikeDownload": "Download"
+  "spikeDownload": "Download",
+  "signInConfirmEmail": "Confirm the email address you used to sign in.",
+  "signInFinish": "Finish signing in"
 }

@@ -241,7 +241,7 @@ abstract class AppLocalizations {
   /// No description provided for @notConfigured.
   ///
   /// In en, this message translates to:
-  /// **'This build has no backend configured ({flavor}). Build with --dart-define-from-file=env/<flavor>.json.'**
+  /// **'This build has no Firebase project configured ({flavor}). On Firebase Hosting, register a Web app in the Firebase project; elsewhere, build with --dart-define-from-file=env/<flavor>.json.'**
   String notConfigured(String flavor);
 
   /// No description provided for @sessionLoadError.
@@ -325,20 +325,8 @@ abstract class AppLocalizations {
   /// No description provided for @signInCheckInbox.
   ///
   /// In en, this message translates to:
-  /// **'We sent a sign-in link to {email}. Open it on this device, or enter the code from the email.'**
+  /// **'We sent a sign-in link to {email}. Open it on this device to sign in.'**
   String signInCheckInbox(String email);
-
-  /// No description provided for @signInCodeLabel.
-  ///
-  /// In en, this message translates to:
-  /// **'Code from the email'**
-  String get signInCodeLabel;
-
-  /// No description provided for @signInVerifyCode.
-  ///
-  /// In en, this message translates to:
-  /// **'Sign in with code'**
-  String get signInVerifyCode;
 
   /// No description provided for @signInUseDifferentEmail.
   ///
@@ -711,6 +699,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Download'**
   String get spikeDownload;
+
+  /// No description provided for @signInConfirmEmail.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm the email address you used to sign in.'**
+  String get signInConfirmEmail;
+
+  /// No description provided for @signInFinish.
+  ///
+  /// In en, this message translates to:
+  /// **'Finish signing in'**
+  String get signInFinish;
 }
 
 class _AppLocalizationsDelegate

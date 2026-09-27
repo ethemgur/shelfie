@@ -26,17 +26,14 @@ jobs:
         run: |
           dart run build_runner build
           git diff --exit-code -- lib
-      - run: dart format --output=none --set-exit-if-changed .
+      - run: dart format --output=none --set-exit-if-changed lib test
       - run: flutter analyze
       - run: flutter test
-      # Backend settings come from repository variables (Settings → Secrets
-      # and variables → Actions → Variables). Without them the site shows a
-      # "not configured" screen instead of crashing.
+      # No Firebase config is compiled in: on Firebase Hosting (live site and
+      # preview channels) the app reads /__/firebase/init.json at startup.
       - run: >-
           flutter build web --release
           --dart-define=FLAVOR=dev
-          --dart-define=SUPABASE_URL=${{ vars.SUPABASE_URL }}
-          --dart-define=SUPABASE_ANON_KEY=${{ vars.SUPABASE_ANON_KEY }}
           --dart-define=GOOGLE_BOOKS_API_KEY=${{ vars.GOOGLE_BOOKS_API_KEY }}
 
       - name: Read Firebase project ID
@@ -55,28 +52,25 @@ jobs:
           projectId: ${{ steps.project.outputs.id }}
           expires: 7d
 
-  database:
-    name: Database (migrations + RLS tests)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: supabase/setup-cli@v1
-        with:
-          version: latest
-      - run: supabase db start
-      - run: supabase test db
-
-  edge-functions:
-    name: Edge Functions (Deno)
+  backend:
+    name: Firebase backend (rules + functions)
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: supabase/functions
+        working-directory: functions
     steps:
       - uses: actions/checkout@v4
-      - uses: denoland/setup-deno@v2
+      - uses: actions/setup-node@v4
         with:
-          deno-version: v2.x
-      - run: deno fmt --check
-      - run: deno check upsert_book/index.ts
-      - run: deno test upsert_book/
+          node-version: 22
+          cache: npm
+          cache-dependency-path: functions/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: npm ci
+      - run: npm run build
+      - run: npm run test:unit
+      # Security rules + Cloud Functions against the Firebase emulators.
+      - run: npm run test:emulator

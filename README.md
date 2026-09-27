@@ -2,10 +2,11 @@
 
 Social reading tracker ("Strava for readers"). Log the page you're on, share a
 card to Instagram or TikTok, and get kudos from friends. Built in Flutter
-(iOS 15+, Android API 24+) with a Supabase backend.
+(iOS 15+, Android API 24+) with a Firebase backend (Auth, Firestore, Storage,
+Cloud Functions, Hosting).
 
 - Choices the spec doesn't cover: [`DECISIONS.md`](DECISIONS.md)
-- Status: **Phase 1** (foundations: schema + RLS, auth, profiles, book search, shelves)
+- Status: **Phase 1** (foundations: data model + security rules, auth, profiles, book search, shelves)
 
 ## Layout
 
@@ -13,7 +14,7 @@ card to Instagram or TikTok, and get kudos from friends. Built in Flutter
 lib/
   app/        app widget, router, theme, env config
   core/       pure helpers (ISBN, dates)
-  data/       models (freezed) and remote clients (Supabase, Open Library, Google Books)
+  data/       models (freezed) and remote clients (Firebase, Open Library, Google Books)
   dev/        dev-flavour-only tools (rendering spike)
   features/
     auth/ onboarding/ books/ library/ profile/ settings/ feed/
@@ -23,23 +24,33 @@ test/
   unit/       pure logic and renderer tests
   golden/     exported share images, pixel-compared
   e2e/        Playwright test of the web build (see test/e2e/README.md)
-supabase/     config.toml, migrations/, functions/, tests/ (pgTAP), templates/
+functions/    Cloud Functions (TypeScript) + rules/functions tests (emulators)
+firestore.rules, storage.rules, firestore.indexes.json, firebase.json
 env/          per-flavour build config (copy *.example.json)
 ```
 
 ## Running
 
+Against the local Firebase emulators (no Firebase project needed):
+
 ```bash
-cp env/dev.example.json env/dev.json      # fill in SUPABASE_*, META_APP_ID
-flutter pub get
+cd functions && npm install && npm run build && cd ..
+npx --prefix functions firebase emulators:start --project demo-shelfie \
+  --only auth,firestore,storage,functions
+flutter run -d chrome --dart-define=USE_FIREBASE_EMULATORS=true
+```
+
+Against a real project:
+
+```bash
+cp env/dev.example.json env/dev.json      # fill in FIREBASE_*, META_APP_ID
 flutter run --flavor dev --dart-define-from-file=env/dev.json   # Android
 flutter run --dart-define-from-file=env/dev.json                # iOS (no flavour schemes yet)
 ```
 
-In the dev flavour, the home screen links to the **rendering spike**. It
-renders `session_minimal` at 1080×1920 and a 3-slide carousel with a network
-cover, shows the export time, and shares to Instagram Stories or the system
-sheet.
+In the dev flavour, Settings links to the **rendering spike**. It renders
+`session_minimal` at 1080×1920 and a 3-slide carousel, shows the export time,
+and shares to Instagram Stories or the system sheet (download on web).
 
 ## Tests
 
@@ -55,41 +66,43 @@ After changing a `@freezed` model or `@riverpod` provider:
 dart run build_runner build
 ```
 
-## Supabase
+## Firebase backend
 
-Migrations live in `supabase/migrations/` and are managed with the Supabase CLI:
+Security rules and Cloud Functions live at the repo root and in `functions/`:
 
 ```bash
-npx supabase start                   # local stack (needs Docker)
-npx supabase migration new <name>
-npx supabase db reset                # re-apply all migrations locally
-npx supabase test db                 # RLS policy tests (supabase/tests)
-npx supabase functions serve         # Edge Functions locally
-cd supabase/functions && deno test upsert_book/
+cd functions
+npm install
+npm run test:unit        # upsertBook input validation
+npm run test:emulator    # security rules + functions, against the emulators
 ```
 
-### Hosted project setup (one time)
+### Project setup (one time)
 
-1. Create a project at [supabase.com](https://supabase.com).
-2. **GitHub → Settings → Secrets and variables → Actions**:
-   - Secrets: `SUPABASE_ACCESS_TOKEN` (from supabase.com → Account → Access
-     Tokens) and `SUPABASE_DB_PASSWORD` (the database password).
-   - Variables: `SUPABASE_PROJECT_REF` (e.g. `abcdefghijklmnop`),
-     `SUPABASE_URL` (`https://<ref>.supabase.co`), `SUPABASE_ANON_KEY` (the
-     publishable / anon key, which is safe to expose), and optionally
-     `GOOGLE_BOOKS_API_KEY`.
+This uses the same Firebase project as the web hosting below.
 
-   On the next push to `main`, the Deploy workflow applies the migrations,
-   deploys `upsert_book`, and builds the web app against the project.
-3. In the Supabase dashboard, **Authentication**:
-   - URL Configuration: Site URL `https://<firebase-project>.web.app`;
-     additional redirect URLs `https://<firebase-project>.web.app`,
-     `https://*--<firebase-project>.web.app` (PR previews),
-     `com.shelfie.shelfie://login-callback/`.
-   - Email Templates → Magic Link and Confirm signup: paste
-     `supabase/templates/magic_link.html`, which includes the 6-digit code.
-   - Providers: enable Google and Apple (each needs its OAuth client set up
-     in Google Cloud / Apple Developer).
+1. **Upgrade the project to the Blaze plan** (Firebase console → Usage and
+   billing). Cloud Functions and Storage need it; a closed beta should stay
+   within the free tier.
+2. **Register a Web app**: Project settings → Your apps → Add app → Web. The
+   hosted web app reads its config from it automatically.
+3. **Authentication → Sign-in method**: enable Email/Password with **Email
+   link (passwordless sign-in)**, Google, and Apple (Apple needs a Services ID
+   from Apple Developer). Under Settings → Authorized domains, check that the
+   `web.app` / `firebaseapp.com` domains are listed.
+4. **Firestore**: create the database (production mode, a region near your
+   users, e.g. `eur3`). **Storage**: Get started (same region).
+5. **Deploy permissions**: in Google Cloud IAM, give the `github-deployer`
+   service account the **Firebase Admin**, **Cloud Functions Admin** and
+   **Service Account User** roles.
+6. In GitHub → Settings → Secrets and variables → Actions → **Variables**, set
+   `DEPLOY_FIREBASE_BACKEND` = `true`. Optionally add `GOOGLE_BOOKS_API_KEY`.
+
+On the next push to `main`, the Deploy workflow deploys the rules, indexes and
+Cloud Functions, and the web app.
+
+Mobile builds also need Android and iOS apps registered in the project. Their
+config goes into `env/<flavor>.json` (`FIREBASE_*`).
 
 ## Web deploy
 

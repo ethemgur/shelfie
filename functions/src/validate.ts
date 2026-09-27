@@ -1,5 +1,5 @@
-// Pure input validation/normalisation for `upsert_book`. No I/O, so it can be
-// unit-tested with `deno test`.
+// Pure input validation/normalisation for `upsertBook`. No I/O, so it can be
+// unit-tested without emulators.
 
 export type BookFormat = "print" | "ebook" | "audiobook";
 export type EditionSource = "open_library" | "google_books" | "user";
@@ -8,26 +8,31 @@ export interface WorkInput {
   title: string;
   subtitle: string | null;
   authors: string[];
-  first_published_year: number | null;
-  cover_url: string | null;
-  open_library_work_key: string | null;
+  firstPublishedYear: number | null;
+  coverUrl: string | null;
+  openLibraryWorkKey: string | null;
 }
 
 export interface EditionInput {
   isbn13: string | null;
   isbn10: string | null;
   format: BookFormat;
-  page_count: number | null;
+  pageCount: number | null;
   publisher: string | null;
-  published_date: string | null;
+  publishedDate: string | null;
   language: string | null;
-  cover_url: string | null;
+  coverUrl: string | null;
   source: EditionSource;
 }
 
 export interface UpsertBookInput {
   work: WorkInput;
   edition: EditionInput;
+  /**
+   * Manual books only: Storage path of the uploaded cover photo, always
+   * inside the caller's own `covers/<uid>/` folder.
+   */
+  coverPath: string | null;
 }
 
 export class ValidationError extends Error {}
@@ -81,45 +86,26 @@ function int(value: unknown, field: string, min: number, max: number): number | 
   return value;
 }
 
-/**
- * An https URL, or — when [requiredPrefix] is given — a URL starting with it
- * (which may be http for the local dev stack).
- */
-function httpsUrl(value: unknown, field: string, requiredPrefix: string | null): string | null {
+function httpsUrl(value: unknown, field: string): string | null {
   const url = str(value, field, 2000);
   if (url === null) return null;
-  if (requiredPrefix !== null) {
-    if (!url.startsWith(requiredPrefix) || url.includes("..")) {
-      throw new ValidationError(`${field} must be a photo you uploaded`);
-    }
-    return url;
-  }
+  let parsed: URL;
   try {
-    if (new URL(url).protocol !== "https:") throw new Error();
+    parsed = new URL(url);
   } catch {
     throw new ValidationError(`${field} must be an https URL`);
   }
+  if (parsed.protocol !== "https:") throw new ValidationError(`${field} must be an https URL`);
   return url;
-}
-
-export interface ParseOptions {
-  /**
-   * Public URL prefix of the caller's own folder in the `covers` bucket,
-   * e.g. `https://x.supabase.co/storage/v1/object/public/covers/<uid>/`.
-   * Manually added books may only use cover photos from there.
-   */
-  userCoverPrefix: string;
 }
 
 /**
  * Validates and normalises the request body. ISBNs are cleaned and
  * checksum-verified; an ISBN-10 alone also yields its ISBN-13.
  */
-export function parseUpsertBookInput(body: unknown, options: ParseOptions): UpsertBookInput {
-  if (typeof body !== "object" || body === null) {
-    throw new ValidationError("body must be an object");
-  }
-  const { work, edition } = body as Record<string, unknown>;
+export function parseUpsertBookInput(body: unknown, uid: string): UpsertBookInput {
+  if (typeof body !== "object" || body === null) throw new ValidationError("body must be an object");
+  const { work, edition, coverPath } = body as Record<string, unknown>;
   if (typeof work !== "object" || work === null) throw new ValidationError("work is required");
   if (typeof edition !== "object" || edition === null) {
     throw new ValidationError("edition is required");
@@ -138,9 +124,9 @@ export function parseUpsertBookInput(body: unknown, options: ParseOptions): Upse
     .filter((a): a is string => a !== null);
   if (authors.length > 20) throw new ValidationError("work.authors has too many entries");
 
-  const olKey = str(w.open_library_work_key, "work.open_library_work_key", 40);
+  const olKey = str(w.openLibraryWorkKey, "work.openLibraryWorkKey", 40);
   if (olKey !== null && !/^\/works\/OL\d+W$/.test(olKey)) {
-    throw new ValidationError("work.open_library_work_key must look like /works/OL123W");
+    throw new ValidationError("work.openLibraryWorkKey must look like /works/OL123W");
   }
 
   const source = e.source as EditionSource;
@@ -152,51 +138,59 @@ export function parseUpsertBookInput(body: unknown, options: ParseOptions): Upse
   let isbn10 = e.isbn10 == null ? null : cleanIsbn(String(e.isbn10));
   if (isbn13 === "") isbn13 = null;
   if (isbn10 === "") isbn10 = null;
-  if (isbn13 !== null && !isValidIsbn13(isbn13)) {
-    throw new ValidationError("edition.isbn13 is invalid");
-  }
-  if (isbn10 !== null && !isValidIsbn10(isbn10)) {
-    throw new ValidationError("edition.isbn10 is invalid");
-  }
+  if (isbn13 !== null && !isValidIsbn13(isbn13)) throw new ValidationError("edition.isbn13 is invalid");
+  if (isbn10 !== null && !isValidIsbn10(isbn10)) throw new ValidationError("edition.isbn10 is invalid");
   if (isbn13 === null && isbn10 !== null) isbn13 = isbn10To13(isbn10);
 
-  const pageCount = int(e.page_count, "edition.page_count", 1, 20000);
+  const pageCount = int(e.pageCount, "edition.pageCount", 1, 20000);
+  let cover: string | null = null;
   if (source === "user") {
     if (authors.length === 0) throw new ValidationError("manual books need an author");
     if (pageCount === null) throw new ValidationError("manual books need a page count");
+    cover = str(coverPath, "coverPath", 300);
+    if (cover !== null && (!cover.startsWith(`covers/${uid}/`) || cover.includes(".."))) {
+      throw new ValidationError("coverPath must be a photo you uploaded");
+    }
   }
-
-  let workCover = httpsUrl(
-    w.cover_url,
-    "work.cover_url",
-    source === "user" ? options.userCoverPrefix : null,
-  );
-  const editionCover = httpsUrl(
-    e.cover_url,
-    "edition.cover_url",
-    source === "user" ? options.userCoverPrefix : null,
-  );
-  if (source === "user") workCover = workCover ?? editionCover;
 
   return {
     work: {
       title,
       subtitle: str(w.subtitle, "work.subtitle", 500),
       authors,
-      first_published_year: int(w.first_published_year, "work.first_published_year", -3000, 3000),
-      cover_url: workCover,
-      open_library_work_key: source === "user" ? null : olKey,
+      firstPublishedYear: int(w.firstPublishedYear, "work.firstPublishedYear", -3000, 3000),
+      // Manual books get their cover from coverPath (resolved server-side).
+      coverUrl: source === "user" ? null : httpsUrl(w.coverUrl, "work.coverUrl"),
+      openLibraryWorkKey: source === "user" ? null : olKey,
     },
     edition: {
       isbn13,
       isbn10,
       format,
-      page_count: pageCount,
+      pageCount,
       publisher: str(e.publisher, "edition.publisher", 300),
-      published_date: str(e.published_date, "edition.published_date", 50),
+      publishedDate: str(e.publishedDate, "edition.publishedDate", 50),
       language: str(e.language, "edition.language", 20),
-      cover_url: editionCover,
+      coverUrl: source === "user" ? null : httpsUrl(e.coverUrl, "edition.coverUrl"),
       source,
     },
+    coverPath: cover,
   };
+}
+
+/**
+ * Deterministic document ids make dedupe race-free: two concurrent adds of
+ * the same book write the same document.
+ *  - work: the Open Library id (`OL66554W`), else random
+ *  - edition: the ISBN-13, else `<workId>_<source>_<format>_<pages>`, and
+ *    manual editions are always new (random).
+ */
+export function workDocId(work: WorkInput): string | null {
+  return work.openLibraryWorkKey?.replace("/works/", "") ?? null;
+}
+
+export function editionDocId(workId: string, edition: EditionInput): string | null {
+  if (edition.isbn13 !== null) return edition.isbn13;
+  if (edition.source === "user") return null;
+  return `${workId}_${edition.source}_${edition.format}_${edition.pageCount ?? "x"}`;
 }

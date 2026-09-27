@@ -1,6 +1,6 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:uuid/uuid.dart';
 
 import '../../core/dates.dart';
 import '../../data/models/models.dart';
@@ -8,102 +8,112 @@ import '../../data/remote/remote_providers.dart';
 
 part 'library_repository.g.dart';
 
-/// The signed-in user's `user_books`. Online-only in Phase 1; Phase 2 moves
-/// writes behind the offline outbox.
+/// The signed-in user's `userBooks` (id `<uid>_<workId>`: one entry per
+/// work). Firestore queues writes while offline; Phase 2 decides whether that
+/// is enough for the offline-first update flow.
 class LibraryRepository {
-  LibraryRepository(this._db);
+  LibraryRepository(this._db, this._auth);
 
-  final SupabaseClient _db;
+  final FirebaseFirestore _db;
+  final FirebaseAuth _auth;
 
-  static const _select = '*, work:works(*), edition:editions(*)';
+  String get _userId => _auth.currentUser!.uid;
 
-  String get _userId => _db.auth.currentUser!.id;
+  CollectionReference<Map<String, dynamic>> get _userBooks =>
+      _db.collection('userBooks');
+
+  DocumentReference<Map<String, dynamic>> _doc(String workId) =>
+      _userBooks.doc('${_userId}_$workId');
 
   Future<List<ShelvedBook>> myBooks() async {
-    final rows = await _db
-        .from('user_books')
-        .select(_select)
-        .eq('user_id', _userId)
-        .order('updated_at', ascending: false);
-    return [for (final row in rows) _shelved(row)];
+    final docs = await _userBooks
+        .where('userId', isEqualTo: _userId)
+        .orderBy('updatedAt', descending: true)
+        .get();
+    return Future.wait([for (final doc in docs.docs) _shelved(doc)]);
   }
 
   Future<ShelvedBook?> myBookForWork(String workId) async {
-    final row = await _db
-        .from('user_books')
-        .select(_select)
-        .eq('user_id', _userId)
-        .eq('work_id', workId)
-        .maybeSingle();
-    return row == null ? null : _shelved(row);
+    final doc = await _doc(workId).get();
+    return doc.exists ? _shelved(doc) : null;
   }
 
   Future<void> add({
     required String workId,
     required String? editionId,
     required Shelf shelf,
-  }) async {
+  }) {
     final today = localDateString(DateTime.now());
-    await _db.from('user_books').insert({
-      'id': const Uuid().v4(),
-      'user_id': _userId,
-      'work_id': workId,
-      'edition_id': editionId,
+    return _doc(workId).set({
+      'userId': _userId,
+      'workId': workId,
+      'editionId': editionId,
       'shelf': shelf.dbValue,
-      if (shelf == Shelf.currentlyReading) 'started_at': today,
-      if (shelf == Shelf.read) 'finished_at': today,
+      'currentPage': 0,
+      'startedAt': shelf == Shelf.currentlyReading ? today : null,
+      'finishedAt': shelf == Shelf.read ? today : null,
+      'source': 'app',
+      'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
     });
   }
 
   /// Moves a book to [shelf], stamping start/finish dates the first time.
-  Future<void> setShelf(UserBook book, Shelf shelf) async {
+  Future<void> setShelf(UserBook book, Shelf shelf) {
     final today = localDateString(DateTime.now());
-    await _db
-        .from('user_books')
-        .update({
-          'shelf': shelf.dbValue,
-          if (shelf == Shelf.currentlyReading && book.startedAt == null)
-            'started_at': today,
-          if (shelf == Shelf.read && book.finishedAt == null)
-            'finished_at': today,
-        })
-        .eq('id', book.id);
+    return _userBooks.doc(book.id).update({
+      'shelf': shelf.dbValue,
+      if (shelf == Shelf.currentlyReading && book.startedAt == null)
+        'startedAt': today,
+      if (shelf == Shelf.read && book.finishedAt == null) 'finishedAt': today,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
   }
 
-  Future<void> changeEdition(String userBookId, String editionId) => _db
-      .from('user_books')
-      .update({'edition_id': editionId})
-      .eq('id', userBookId);
+  Future<void> changeEdition(String userBookId, String editionId) =>
+      _userBooks.doc(userBookId).update({
+        'editionId': editionId,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
 
   Future<void> saveReview(
     String userBookId, {
     required double? rating,
     required String? reviewLine,
-  }) => _db
-      .from('user_books')
-      .update({
-        'rating': rating,
-        'review_line': (reviewLine?.trim().isEmpty ?? true)
-            ? null
-            : reviewLine!.trim(),
-      })
-      .eq('id', userBookId);
-
-  Future<void> remove(String userBookId) =>
-      _db.from('user_books').delete().eq('id', userBookId);
-
-  static ShelvedBook _shelved(Map<String, dynamic> row) => ShelvedBook(
-    userBook: UserBook.fromJson(row),
-    work: Work.fromJson(row['work'] as Map<String, dynamic>),
-    edition: row['edition'] == null
+  }) => _userBooks.doc(userBookId).update({
+    'rating': rating,
+    'reviewLine': (reviewLine?.trim().isEmpty ?? true)
         ? null
-        : Edition.fromJson(row['edition'] as Map<String, dynamic>),
-  );
+        : reviewLine!.trim(),
+    'updatedAt': FieldValue.serverTimestamp(),
+  });
+
+  Future<void> remove(String userBookId) => _userBooks.doc(userBookId).delete();
+
+  Future<ShelvedBook> _shelved(
+    DocumentSnapshot<Map<String, dynamic>> doc,
+  ) async {
+    final book = UserBook.fromJson(withId(doc));
+    final results = await Future.wait([
+      _db.collection('works').doc(book.workId).get(),
+      if (book.editionId != null)
+        _db.collection('editions').doc(book.editionId).get(),
+    ]);
+    return ShelvedBook(
+      userBook: book,
+      work: Work.fromJson(withId(results[0])),
+      edition: results.length > 1 && results[1].exists
+          ? Edition.fromJson(withId(results[1]))
+          : null,
+    );
+  }
 }
 
 @Riverpod(keepAlive: true)
-LibraryRepository libraryRepository(Ref ref) =>
-    LibraryRepository(ref.watch(supabaseProvider));
+LibraryRepository libraryRepository(Ref ref) => LibraryRepository(
+  ref.watch(firestoreProvider),
+  ref.watch(firebaseAuthProvider),
+);
 
 @riverpod
 Future<List<ShelvedBook>> myBooks(Ref ref) =>

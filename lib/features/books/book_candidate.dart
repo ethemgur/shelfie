@@ -5,7 +5,7 @@ import '../../data/models/models.dart';
 part 'book_candidate.freezed.dart';
 
 /// A search/scan result, from our catalogue or an external API. Tapping one
-/// either opens the known work ([workId] set) or goes through `upsert_book`.
+/// either opens the known work ([workId] set) or goes through `upsertBook`.
 @freezed
 abstract class BookCandidate with _$BookCandidate {
   const BookCandidate._();
@@ -33,25 +33,25 @@ abstract class BookCandidate with _$BookCandidate {
 
   bool get inCatalogue => workId != null;
 
-  /// Request body for the `upsert_book` Edge Function.
+  /// Request body for the `upsertBook` Cloud Function.
   Map<String, dynamic> toUpsertBody() => {
     'work': {
       'title': title,
       'subtitle': subtitle,
       'authors': authors,
-      'first_published_year': firstPublishedYear,
-      'cover_url': coverUrl,
-      'open_library_work_key': openLibraryWorkKey,
+      'firstPublishedYear': firstPublishedYear,
+      'coverUrl': coverUrl,
+      'openLibraryWorkKey': openLibraryWorkKey,
     },
     'edition': {
       'isbn13': isbn13,
       'isbn10': isbn10,
       'format': format.name,
-      'page_count': pageCount,
+      'pageCount': pageCount,
       'publisher': publisher,
-      'published_date': publishedDate,
+      'publishedDate': publishedDate,
       'language': language,
-      'cover_url': coverUrl,
+      'coverUrl': coverUrl,
       'source': source.dbValue,
     },
   };

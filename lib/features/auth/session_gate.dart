@@ -1,8 +1,8 @@
 import 'dart:async';
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../data/models/models.dart';
 import '../../data/remote/remote_providers.dart';
@@ -17,16 +17,12 @@ enum SessionStatus { loading, signedOut, needsProfile, ready, error }
 /// profile exist?), so a killed app resumes at the right step.
 class SessionGate extends ChangeNotifier {
   SessionGate(this._auth, this._profiles) {
-    _sub = _auth.onAuthStateChange.listen((state) {
-      if (state.event == AuthChangeEvent.tokenRefreshed) return;
-      _load();
-    });
-    _load();
+    _sub = _auth.authStateChanges().listen((_) => _load());
   }
 
-  final GoTrueClient _auth;
+  final FirebaseAuth _auth;
   final ProfileRepository _profiles;
-  late final StreamSubscription<AuthState> _sub;
+  late final StreamSubscription<User?> _sub;
 
   SessionStatus _status = SessionStatus.loading;
   SessionStatus get status => _status;
@@ -44,7 +40,7 @@ class SessionGate extends ChangeNotifier {
       return;
     }
     try {
-      final profile = await _profiles.profile(user.id);
+      final profile = await _profiles.profile(user.uid);
       if (generation != _generation) return;
       _set(
         profile == null ? SessionStatus.needsProfile : SessionStatus.ready,
@@ -75,7 +71,7 @@ class SessionGate extends ChangeNotifier {
 @Riverpod(keepAlive: true)
 SessionGate sessionGate(Ref ref) {
   final gate = SessionGate(
-    ref.watch(supabaseProvider).auth,
+    ref.watch(firebaseAuthProvider),
     ref.watch(profileRepositoryProvider),
   );
   ref.onDispose(gate.dispose);

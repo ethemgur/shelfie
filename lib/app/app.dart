@@ -37,8 +37,8 @@ class _ShelfieAppState extends ConsumerState<ShelfieApp> {
   }
 }
 
-/// Shown when the build has no Supabase config (`SUPABASE_URL` /
-/// `SUPABASE_ANON_KEY` dart-defines), instead of crashing.
+/// Shown when the build has no Firebase config (no `FIREBASE_*` dart-defines
+/// and, on web, no `/__/firebase/init.json`), instead of crashing.
 class NotConfiguredApp extends StatelessWidget {
   const NotConfiguredApp({super.key});
 

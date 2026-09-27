@@ -119,7 +119,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String notConfigured(String flavor) {
-    return 'This build has no backend configured ($flavor). Build with --dart-define-from-file=env/<flavor>.json.';
+    return 'This build has no Firebase project configured ($flavor). On Firebase Hosting, register a Web app in the Firebase project; elsewhere, build with --dart-define-from-file=env/<flavor>.json.';
   }
 
   @override
@@ -164,14 +164,8 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String signInCheckInbox(String email) {
-    return 'We sent a sign-in link to $email. Open it on this device, or enter the code from the email.';
+    return 'We sent a sign-in link to $email. Open it on this device to sign in.';
   }
-
-  @override
-  String get signInCodeLabel => 'Code from the email';
-
-  @override
-  String get signInVerifyCode => 'Sign in with code';
 
   @override
   String get signInUseDifferentEmail => 'Use a different email';
@@ -399,4 +393,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get spikeDownload => 'Download';
+
+  @override
+  String get signInConfirmEmail =>
+      'Confirm the email address you used to sign in.';
+
+  @override
+  String get signInFinish => 'Finish signing in';
 }

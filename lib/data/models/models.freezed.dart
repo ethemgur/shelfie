@@ -16,7 +16,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$Profile {
 
- String get id; String get username; String get displayName; String? get avatarPath; String? get bio; int get weeklyPageGoal; Visibility get defaultVisibility; String get timezone; DateTime? get onboardingCompletedAt;
+ String get id; String get username; String get displayName; String? get avatarPath; String? get avatarUrl; String? get bio; int get weeklyPageGoal; Visibility get defaultVisibility; String get timezone;@TimestampConverter() DateTime? get onboardingCompletedAt;
 /// Create a copy of Profile
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -30,20 +30,20 @@ $ProfileCopyWith<Profile> get copyWith => _$ProfileCopyWithImpl<Profile>(this as
 @override
 bool operator ==(Object other) {
   final _this = this as Profile;
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is Profile&&(identical(other.id, _this.id) || other.id == _this.id)&&(identical(other.username, _this.username) || other.username == _this.username)&&(identical(other.displayName, _this.displayName) || other.displayName == _this.displayName)&&(identical(other.avatarPath, _this.avatarPath) || other.avatarPath == _this.avatarPath)&&(identical(other.bio, _this.bio) || other.bio == _this.bio)&&(identical(other.weeklyPageGoal, _this.weeklyPageGoal) || other.weeklyPageGoal == _this.weeklyPageGoal)&&(identical(other.defaultVisibility, _this.defaultVisibility) || other.defaultVisibility == _this.defaultVisibility)&&(identical(other.timezone, _this.timezone) || other.timezone == _this.timezone)&&(identical(other.onboardingCompletedAt, _this.onboardingCompletedAt) || other.onboardingCompletedAt == _this.onboardingCompletedAt));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is Profile&&(identical(other.id, _this.id) || other.id == _this.id)&&(identical(other.username, _this.username) || other.username == _this.username)&&(identical(other.displayName, _this.displayName) || other.displayName == _this.displayName)&&(identical(other.avatarPath, _this.avatarPath) || other.avatarPath == _this.avatarPath)&&(identical(other.avatarUrl, _this.avatarUrl) || other.avatarUrl == _this.avatarUrl)&&(identical(other.bio, _this.bio) || other.bio == _this.bio)&&(identical(other.weeklyPageGoal, _this.weeklyPageGoal) || other.weeklyPageGoal == _this.weeklyPageGoal)&&(identical(other.defaultVisibility, _this.defaultVisibility) || other.defaultVisibility == _this.defaultVisibility)&&(identical(other.timezone, _this.timezone) || other.timezone == _this.timezone)&&(identical(other.onboardingCompletedAt, _this.onboardingCompletedAt) || other.onboardingCompletedAt == _this.onboardingCompletedAt));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
 int get hashCode {
   final _this = this as Profile;
-  return Object.hash(runtimeType,_this.id,_this.username,_this.displayName,_this.avatarPath,_this.bio,_this.weeklyPageGoal,_this.defaultVisibility,_this.timezone,_this.onboardingCompletedAt);
+  return Object.hash(runtimeType,_this.id,_this.username,_this.displayName,_this.avatarPath,_this.avatarUrl,_this.bio,_this.weeklyPageGoal,_this.defaultVisibility,_this.timezone,_this.onboardingCompletedAt);
 }
 
 @override
 String toString() {
   final _this = this as Profile;
-  return 'Profile(id: ${_this.id}, username: ${_this.username}, displayName: ${_this.displayName}, avatarPath: ${_this.avatarPath}, bio: ${_this.bio}, weeklyPageGoal: ${_this.weeklyPageGoal}, defaultVisibility: ${_this.defaultVisibility}, timezone: ${_this.timezone}, onboardingCompletedAt: ${_this.onboardingCompletedAt})';
+  return 'Profile(id: ${_this.id}, username: ${_this.username}, displayName: ${_this.displayName}, avatarPath: ${_this.avatarPath}, avatarUrl: ${_this.avatarUrl}, bio: ${_this.bio}, weeklyPageGoal: ${_this.weeklyPageGoal}, defaultVisibility: ${_this.defaultVisibility}, timezone: ${_this.timezone}, onboardingCompletedAt: ${_this.onboardingCompletedAt})';
 }
 
 
@@ -54,7 +54,7 @@ abstract mixin class $ProfileCopyWith<$Res>  {
   factory $ProfileCopyWith(Profile value, $Res Function(Profile) _then) = _$ProfileCopyWithImpl;
 @useResult
 $Res call({
- String id, String username, String displayName, String? avatarPath, String? bio, int weeklyPageGoal, Visibility defaultVisibility, String timezone, DateTime? onboardingCompletedAt
+ String id, String username, String displayName, String? avatarPath, String? avatarUrl, String? bio, int weeklyPageGoal, Visibility defaultVisibility, String timezone,@TimestampConverter() DateTime? onboardingCompletedAt
 });
 
 
@@ -71,12 +71,13 @@ class _$ProfileCopyWithImpl<$Res>
 
 /// Create a copy of Profile
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? username = null,Object? displayName = null,Object? avatarPath = freezed,Object? bio = freezed,Object? weeklyPageGoal = null,Object? defaultVisibility = null,Object? timezone = null,Object? onboardingCompletedAt = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? username = null,Object? displayName = null,Object? avatarPath = freezed,Object? avatarUrl = freezed,Object? bio = freezed,Object? weeklyPageGoal = null,Object? defaultVisibility = null,Object? timezone = null,Object? onboardingCompletedAt = freezed,}) {
   return _then(Profile(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,username: null == username ? _self.username : username // ignore: cast_nullable_to_non_nullable
 as String,displayName: null == displayName ? _self.displayName : displayName // ignore: cast_nullable_to_non_nullable
 as String,avatarPath: freezed == avatarPath ? _self.avatarPath : avatarPath // ignore: cast_nullable_to_non_nullable
+as String?,avatarUrl: freezed == avatarUrl ? _self.avatarUrl : avatarUrl // ignore: cast_nullable_to_non_nullable
 as String?,bio: freezed == bio ? _self.bio : bio // ignore: cast_nullable_to_non_nullable
 as String?,weeklyPageGoal: null == weeklyPageGoal ? _self.weeklyPageGoal : weeklyPageGoal // ignore: cast_nullable_to_non_nullable
 as int,defaultVisibility: null == defaultVisibility ? _self.defaultVisibility : defaultVisibility // ignore: cast_nullable_to_non_nullable
@@ -167,10 +168,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String username,  String displayName,  String? avatarPath,  String? bio,  int weeklyPageGoal,  Visibility defaultVisibility,  String timezone,  DateTime? onboardingCompletedAt)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String username,  String displayName,  String? avatarPath,  String? avatarUrl,  String? bio,  int weeklyPageGoal,  Visibility defaultVisibility,  String timezone, @TimestampConverter()  DateTime? onboardingCompletedAt)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _Profile() when $default != null:
-return $default(_that.id,_that.username,_that.displayName,_that.avatarPath,_that.bio,_that.weeklyPageGoal,_that.defaultVisibility,_that.timezone,_that.onboardingCompletedAt);case _:
+return $default(_that.id,_that.username,_that.displayName,_that.avatarPath,_that.avatarUrl,_that.bio,_that.weeklyPageGoal,_that.defaultVisibility,_that.timezone,_that.onboardingCompletedAt);case _:
   return orElse();
 
 }
@@ -188,10 +189,10 @@ return $default(_that.id,_that.username,_that.displayName,_that.avatarPath,_that
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String username,  String displayName,  String? avatarPath,  String? bio,  int weeklyPageGoal,  Visibility defaultVisibility,  String timezone,  DateTime? onboardingCompletedAt)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String username,  String displayName,  String? avatarPath,  String? avatarUrl,  String? bio,  int weeklyPageGoal,  Visibility defaultVisibility,  String timezone, @TimestampConverter()  DateTime? onboardingCompletedAt)  $default,) {final _that = this;
 switch (_that) {
 case _Profile():
-return $default(_that.id,_that.username,_that.displayName,_that.avatarPath,_that.bio,_that.weeklyPageGoal,_that.defaultVisibility,_that.timezone,_that.onboardingCompletedAt);case _:
+return $default(_that.id,_that.username,_that.displayName,_that.avatarPath,_that.avatarUrl,_that.bio,_that.weeklyPageGoal,_that.defaultVisibility,_that.timezone,_that.onboardingCompletedAt);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -208,10 +209,10 @@ return $default(_that.id,_that.username,_that.displayName,_that.avatarPath,_that
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String username,  String displayName,  String? avatarPath,  String? bio,  int weeklyPageGoal,  Visibility defaultVisibility,  String timezone,  DateTime? onboardingCompletedAt)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String username,  String displayName,  String? avatarPath,  String? avatarUrl,  String? bio,  int weeklyPageGoal,  Visibility defaultVisibility,  String timezone, @TimestampConverter()  DateTime? onboardingCompletedAt)?  $default,) {final _that = this;
 switch (_that) {
 case _Profile() when $default != null:
-return $default(_that.id,_that.username,_that.displayName,_that.avatarPath,_that.bio,_that.weeklyPageGoal,_that.defaultVisibility,_that.timezone,_that.onboardingCompletedAt);case _:
+return $default(_that.id,_that.username,_that.displayName,_that.avatarPath,_that.avatarUrl,_that.bio,_that.weeklyPageGoal,_that.defaultVisibility,_that.timezone,_that.onboardingCompletedAt);case _:
   return null;
 
 }
@@ -223,18 +224,19 @@ return $default(_that.id,_that.username,_that.displayName,_that.avatarPath,_that
 @JsonSerializable()
 
 class _Profile implements Profile {
-  const _Profile({required this.id, required this.username, required this.displayName, this.avatarPath, this.bio, this.weeklyPageGoal = 150, this.defaultVisibility = Visibility.followers, this.timezone = 'UTC', this.onboardingCompletedAt});
+  const _Profile({required this.id, required this.username, required this.displayName, this.avatarPath, this.avatarUrl, this.bio, this.weeklyPageGoal = 150, this.defaultVisibility = Visibility.followers, this.timezone = 'UTC', @TimestampConverter() this.onboardingCompletedAt});
   factory _Profile.fromJson(Map<String, dynamic> json) => _$ProfileFromJson(json);
 
 @override final  String id;
 @override final  String username;
 @override final  String displayName;
 @override final  String? avatarPath;
+@override final  String? avatarUrl;
 @override final  String? bio;
 @override@JsonKey() final  int weeklyPageGoal;
 @override@JsonKey() final  Visibility defaultVisibility;
 @override@JsonKey() final  String timezone;
-@override final  DateTime? onboardingCompletedAt;
+@override@TimestampConverter() final  DateTime? onboardingCompletedAt;
 
 /// Create a copy of Profile
 /// with the given fields replaced by the non-null parameter values.
@@ -249,18 +251,18 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-    return identical(this, other) || (other.runtimeType == runtimeType&&other is _Profile&&(identical(other.id, id) || other.id == id)&&(identical(other.username, username) || other.username == username)&&(identical(other.displayName, displayName) || other.displayName == displayName)&&(identical(other.avatarPath, avatarPath) || other.avatarPath == avatarPath)&&(identical(other.bio, bio) || other.bio == bio)&&(identical(other.weeklyPageGoal, weeklyPageGoal) || other.weeklyPageGoal == weeklyPageGoal)&&(identical(other.defaultVisibility, defaultVisibility) || other.defaultVisibility == defaultVisibility)&&(identical(other.timezone, timezone) || other.timezone == timezone)&&(identical(other.onboardingCompletedAt, onboardingCompletedAt) || other.onboardingCompletedAt == onboardingCompletedAt));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _Profile&&(identical(other.id, id) || other.id == id)&&(identical(other.username, username) || other.username == username)&&(identical(other.displayName, displayName) || other.displayName == displayName)&&(identical(other.avatarPath, avatarPath) || other.avatarPath == avatarPath)&&(identical(other.avatarUrl, avatarUrl) || other.avatarUrl == avatarUrl)&&(identical(other.bio, bio) || other.bio == bio)&&(identical(other.weeklyPageGoal, weeklyPageGoal) || other.weeklyPageGoal == weeklyPageGoal)&&(identical(other.defaultVisibility, defaultVisibility) || other.defaultVisibility == defaultVisibility)&&(identical(other.timezone, timezone) || other.timezone == timezone)&&(identical(other.onboardingCompletedAt, onboardingCompletedAt) || other.onboardingCompletedAt == onboardingCompletedAt));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
 int get hashCode {
-    return Object.hash(runtimeType,id,username,displayName,avatarPath,bio,weeklyPageGoal,defaultVisibility,timezone,onboardingCompletedAt);
+    return Object.hash(runtimeType,id,username,displayName,avatarPath,avatarUrl,bio,weeklyPageGoal,defaultVisibility,timezone,onboardingCompletedAt);
 }
 
 @override
 String toString() {
-    return 'Profile(id: $id, username: $username, displayName: $displayName, avatarPath: $avatarPath, bio: $bio, weeklyPageGoal: $weeklyPageGoal, defaultVisibility: $defaultVisibility, timezone: $timezone, onboardingCompletedAt: $onboardingCompletedAt)';
+    return 'Profile(id: $id, username: $username, displayName: $displayName, avatarPath: $avatarPath, avatarUrl: $avatarUrl, bio: $bio, weeklyPageGoal: $weeklyPageGoal, defaultVisibility: $defaultVisibility, timezone: $timezone, onboardingCompletedAt: $onboardingCompletedAt)';
 }
 
 
@@ -271,7 +273,7 @@ abstract mixin class _$ProfileCopyWith<$Res> implements $ProfileCopyWith<$Res> {
   factory _$ProfileCopyWith(_Profile value, $Res Function(_Profile) _then) = __$ProfileCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String username, String displayName, String? avatarPath, String? bio, int weeklyPageGoal, Visibility defaultVisibility, String timezone, DateTime? onboardingCompletedAt
+ String id, String username, String displayName, String? avatarPath, String? avatarUrl, String? bio, int weeklyPageGoal, Visibility defaultVisibility, String timezone,@TimestampConverter() DateTime? onboardingCompletedAt
 });
 
 
@@ -288,12 +290,13 @@ class __$ProfileCopyWithImpl<$Res>
 
 /// Create a copy of Profile
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? username = null,Object? displayName = null,Object? avatarPath = freezed,Object? bio = freezed,Object? weeklyPageGoal = null,Object? defaultVisibility = null,Object? timezone = null,Object? onboardingCompletedAt = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? username = null,Object? displayName = null,Object? avatarPath = freezed,Object? avatarUrl = freezed,Object? bio = freezed,Object? weeklyPageGoal = null,Object? defaultVisibility = null,Object? timezone = null,Object? onboardingCompletedAt = freezed,}) {
   return _then(_Profile(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,username: null == username ? _self.username : username // ignore: cast_nullable_to_non_nullable
 as String,displayName: null == displayName ? _self.displayName : displayName // ignore: cast_nullable_to_non_nullable
 as String,avatarPath: freezed == avatarPath ? _self.avatarPath : avatarPath // ignore: cast_nullable_to_non_nullable
+as String?,avatarUrl: freezed == avatarUrl ? _self.avatarUrl : avatarUrl // ignore: cast_nullable_to_non_nullable
 as String?,bio: freezed == bio ? _self.bio : bio // ignore: cast_nullable_to_non_nullable
 as String?,weeklyPageGoal: null == weeklyPageGoal ? _self.weeklyPageGoal : weeklyPageGoal // ignore: cast_nullable_to_non_nullable
 as int,defaultVisibility: null == defaultVisibility ? _self.defaultVisibility : defaultVisibility // ignore: cast_nullable_to_non_nullable
@@ -904,7 +907,8 @@ as BookSource,
 /// @nodoc
 mixin _$UserBook {
 
- String get id; String get userId; String get workId; String? get editionId; int? get pageCountOverride; Shelf get shelf; int get currentPage; DateTime? get startedAt; DateTime? get finishedAt; double? get rating; String? get reviewLine; String get source; DateTime? get updatedAt;
+ String get id; String get userId; String get workId; String? get editionId; int? get pageCountOverride; Shelf get shelf; int get currentPage;/// Local calendar dates, `yyyy-MM-dd`.
+ String? get startedAt; String? get finishedAt; double? get rating; String? get reviewLine; String get source;@TimestampConverter() DateTime? get updatedAt;
 /// Create a copy of UserBook
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -942,7 +946,7 @@ abstract mixin class $UserBookCopyWith<$Res>  {
   factory $UserBookCopyWith(UserBook value, $Res Function(UserBook) _then) = _$UserBookCopyWithImpl;
 @useResult
 $Res call({
- String id, String userId, String workId, String? editionId, int? pageCountOverride, Shelf shelf, int currentPage, DateTime? startedAt, DateTime? finishedAt, double? rating, String? reviewLine, String source, DateTime? updatedAt
+ String id, String userId, String workId, String? editionId, int? pageCountOverride, Shelf shelf, int currentPage, String? startedAt, String? finishedAt, double? rating, String? reviewLine, String source,@TimestampConverter() DateTime? updatedAt
 });
 
 
@@ -969,8 +973,8 @@ as String?,pageCountOverride: freezed == pageCountOverride ? _self.pageCountOver
 as int?,shelf: null == shelf ? _self.shelf : shelf // ignore: cast_nullable_to_non_nullable
 as Shelf,currentPage: null == currentPage ? _self.currentPage : currentPage // ignore: cast_nullable_to_non_nullable
 as int,startedAt: freezed == startedAt ? _self.startedAt : startedAt // ignore: cast_nullable_to_non_nullable
-as DateTime?,finishedAt: freezed == finishedAt ? _self.finishedAt : finishedAt // ignore: cast_nullable_to_non_nullable
-as DateTime?,rating: freezed == rating ? _self.rating : rating // ignore: cast_nullable_to_non_nullable
+as String?,finishedAt: freezed == finishedAt ? _self.finishedAt : finishedAt // ignore: cast_nullable_to_non_nullable
+as String?,rating: freezed == rating ? _self.rating : rating // ignore: cast_nullable_to_non_nullable
 as double?,reviewLine: freezed == reviewLine ? _self.reviewLine : reviewLine // ignore: cast_nullable_to_non_nullable
 as String?,source: null == source ? _self.source : source // ignore: cast_nullable_to_non_nullable
 as String,updatedAt: freezed == updatedAt ? _self.updatedAt : updatedAt // ignore: cast_nullable_to_non_nullable
@@ -1059,7 +1063,7 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String userId,  String workId,  String? editionId,  int? pageCountOverride,  Shelf shelf,  int currentPage,  DateTime? startedAt,  DateTime? finishedAt,  double? rating,  String? reviewLine,  String source,  DateTime? updatedAt)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String userId,  String workId,  String? editionId,  int? pageCountOverride,  Shelf shelf,  int currentPage,  String? startedAt,  String? finishedAt,  double? rating,  String? reviewLine,  String source, @TimestampConverter()  DateTime? updatedAt)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _UserBook() when $default != null:
 return $default(_that.id,_that.userId,_that.workId,_that.editionId,_that.pageCountOverride,_that.shelf,_that.currentPage,_that.startedAt,_that.finishedAt,_that.rating,_that.reviewLine,_that.source,_that.updatedAt);case _:
@@ -1080,7 +1084,7 @@ return $default(_that.id,_that.userId,_that.workId,_that.editionId,_that.pageCou
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String userId,  String workId,  String? editionId,  int? pageCountOverride,  Shelf shelf,  int currentPage,  DateTime? startedAt,  DateTime? finishedAt,  double? rating,  String? reviewLine,  String source,  DateTime? updatedAt)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String userId,  String workId,  String? editionId,  int? pageCountOverride,  Shelf shelf,  int currentPage,  String? startedAt,  String? finishedAt,  double? rating,  String? reviewLine,  String source, @TimestampConverter()  DateTime? updatedAt)  $default,) {final _that = this;
 switch (_that) {
 case _UserBook():
 return $default(_that.id,_that.userId,_that.workId,_that.editionId,_that.pageCountOverride,_that.shelf,_that.currentPage,_that.startedAt,_that.finishedAt,_that.rating,_that.reviewLine,_that.source,_that.updatedAt);case _:
@@ -1100,7 +1104,7 @@ return $default(_that.id,_that.userId,_that.workId,_that.editionId,_that.pageCou
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String userId,  String workId,  String? editionId,  int? pageCountOverride,  Shelf shelf,  int currentPage,  DateTime? startedAt,  DateTime? finishedAt,  double? rating,  String? reviewLine,  String source,  DateTime? updatedAt)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String userId,  String workId,  String? editionId,  int? pageCountOverride,  Shelf shelf,  int currentPage,  String? startedAt,  String? finishedAt,  double? rating,  String? reviewLine,  String source, @TimestampConverter()  DateTime? updatedAt)?  $default,) {final _that = this;
 switch (_that) {
 case _UserBook() when $default != null:
 return $default(_that.id,_that.userId,_that.workId,_that.editionId,_that.pageCountOverride,_that.shelf,_that.currentPage,_that.startedAt,_that.finishedAt,_that.rating,_that.reviewLine,_that.source,_that.updatedAt);case _:
@@ -1115,7 +1119,7 @@ return $default(_that.id,_that.userId,_that.workId,_that.editionId,_that.pageCou
 @JsonSerializable()
 
 class _UserBook extends UserBook {
-  const _UserBook({required this.id, required this.userId, required this.workId, this.editionId, this.pageCountOverride, required this.shelf, this.currentPage = 0, this.startedAt, this.finishedAt, this.rating, this.reviewLine, this.source = 'app', this.updatedAt}): super._();
+  const _UserBook({required this.id, required this.userId, required this.workId, this.editionId, this.pageCountOverride, required this.shelf, this.currentPage = 0, this.startedAt, this.finishedAt, this.rating, this.reviewLine, this.source = 'app', @TimestampConverter() this.updatedAt}): super._();
   factory _UserBook.fromJson(Map<String, dynamic> json) => _$UserBookFromJson(json);
 
 @override final  String id;
@@ -1125,12 +1129,13 @@ class _UserBook extends UserBook {
 @override final  int? pageCountOverride;
 @override final  Shelf shelf;
 @override@JsonKey() final  int currentPage;
-@override final  DateTime? startedAt;
-@override final  DateTime? finishedAt;
+/// Local calendar dates, `yyyy-MM-dd`.
+@override final  String? startedAt;
+@override final  String? finishedAt;
 @override final  double? rating;
 @override final  String? reviewLine;
 @override@JsonKey() final  String source;
-@override final  DateTime? updatedAt;
+@override@TimestampConverter() final  DateTime? updatedAt;
 
 /// Create a copy of UserBook
 /// with the given fields replaced by the non-null parameter values.
@@ -1167,7 +1172,7 @@ abstract mixin class _$UserBookCopyWith<$Res> implements $UserBookCopyWith<$Res>
   factory _$UserBookCopyWith(_UserBook value, $Res Function(_UserBook) _then) = __$UserBookCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String userId, String workId, String? editionId, int? pageCountOverride, Shelf shelf, int currentPage, DateTime? startedAt, DateTime? finishedAt, double? rating, String? reviewLine, String source, DateTime? updatedAt
+ String id, String userId, String workId, String? editionId, int? pageCountOverride, Shelf shelf, int currentPage, String? startedAt, String? finishedAt, double? rating, String? reviewLine, String source,@TimestampConverter() DateTime? updatedAt
 });
 
 
@@ -1194,8 +1199,8 @@ as String?,pageCountOverride: freezed == pageCountOverride ? _self.pageCountOver
 as int?,shelf: null == shelf ? _self.shelf : shelf // ignore: cast_nullable_to_non_nullable
 as Shelf,currentPage: null == currentPage ? _self.currentPage : currentPage // ignore: cast_nullable_to_non_nullable
 as int,startedAt: freezed == startedAt ? _self.startedAt : startedAt // ignore: cast_nullable_to_non_nullable
-as DateTime?,finishedAt: freezed == finishedAt ? _self.finishedAt : finishedAt // ignore: cast_nullable_to_non_nullable
-as DateTime?,rating: freezed == rating ? _self.rating : rating // ignore: cast_nullable_to_non_nullable
+as String?,finishedAt: freezed == finishedAt ? _self.finishedAt : finishedAt // ignore: cast_nullable_to_non_nullable
+as String?,rating: freezed == rating ? _self.rating : rating // ignore: cast_nullable_to_non_nullable
 as double?,reviewLine: freezed == reviewLine ? _self.reviewLine : reviewLine // ignore: cast_nullable_to_non_nullable
 as String?,source: null == source ? _self.source : source // ignore: cast_nullable_to_non_nullable
 as String,updatedAt: freezed == updatedAt ? _self.updatedAt : updatedAt // ignore: cast_nullable_to_non_nullable
